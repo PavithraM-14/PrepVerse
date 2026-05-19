@@ -1,0 +1,238 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PrepVerse Design System — Cyberpunk Futuristic Theme */
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+
+    /* Light mode — cool white base */
+    --background: 220 20% 97%;
+    --foreground: 224 71% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 8%;
+
+    /* Electric Blue primary */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 224 71% 8%;
+
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 13% 42%;
+
+    /* Low-saturation accent for light mode */
+    --accent: 221 20% 92%;
+    --accent-foreground: 224 71% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 221 83% 53%;
+
+    /* Neon purple — used sparingly */
+    --neon-purple: 271 91% 65%;
+    --neon-blue: 221 83% 53%;
+
+    /* Status colors */
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+
+    /* Education custom */
+    --education-blue: 221 83% 53%;
+    --education-green: 160 84% 39%;
+
+    /* Charts */
+    --chart-1: 221 83% 53%;
+    --chart-2: 271 91% 65%;
+    --chart-3: 160 84% 39%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 60%;
+
+    /* Sidebar */
+    --sidebar-background: 220 20% 97%;
+    --sidebar-foreground: 224 71% 8%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 221 20% 92%;
+    --sidebar-accent-foreground: 224 71% 8%;
+    --sidebar-border: 220 13% 88%;
+    --sidebar-ring: 221 83% 53%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(271 91% 65%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.8), hsl(220 20% 97% / 0.6));
+    --gradient-background: linear-gradient(135deg, hsl(220 20% 97%), hsl(221 30% 93%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 83% 53% / 0.15), hsl(271 91% 65% / 0.1));
+
+    /* Shadows */
+    --shadow-card: 0 4px 12px hsl(220 13% 50% / 0.12);
+    --shadow-hover: 0 8px 24px hsl(221 83% 53% / 0.25);
+    --shadow-neon: 0 0 20px hsl(221 83% 53% / 0.4);
+  }
+
+  .dark {
+    /* Deep space background */
+    --background: 227 44% 7%;
+    --foreground: 210 40% 96%;
+
+    --card: 224 44% 10%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 224 44% 10%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 221 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 30% 16%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 224 30% 16%;
+    --muted-foreground: 215 20% 62%;
+
+    /* Very dark low-saturation accent for dark mode */
+    --accent: 224 30% 13%;
+    --accent-foreground: 210 40% 96%;
+
+    --destructive: 0 63% 40%;
+    --destructive-foreground: 210 40% 96%;
+
+    --border: 224 30% 18%;
+    --input: 224 30% 18%;
+    --ring: 221 83% 58%;
+
+    --neon-purple: 271 91% 68%;
+    --neon-blue: 221 83% 58%;
+
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+
+    --education-blue: 221 83% 58%;
+    --education-green: 160 84% 39%;
+
+    --chart-1: 221 83% 58%;
+    --chart-2: 271 91% 68%;
+    --chart-3: 160 84% 45%;
+    --chart-4: 38 92% 55%;
+    --chart-5: 0 84% 60%;
+
+    --sidebar-background: 224 44% 8%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 221 83% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 30% 14%;
+    --sidebar-accent-foreground: 210 40% 90%;
+    --sidebar-border: 224 30% 16%;
+    --sidebar-ring: 221 83% 58%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 58%), hsl(271 91% 68%));
+    --gradient-card: linear-gradient(135deg, hsl(224 44% 12% / 0.9), hsl(224 44% 10% / 0.8));
+    --gradient-background: linear-gradient(135deg, hsl(227 44% 7%), hsl(224 44% 9%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 83% 58% / 0.2), hsl(271 91% 68% / 0.15));
+
+    --shadow-card: 0 4px 12px hsl(0 0% 0% / 0.4);
+    --shadow-hover: 0 8px 24px hsl(221 83% 58% / 0.35);
+    --shadow-neon: 0 0 24px hsl(221 83% 58% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Scrollbar styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+}
+
+@layer utilities {
+  /* Glassmorphism utility */
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  .glass-strong {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Neon glow effects */
+  .neon-glow {
+    box-shadow: var(--shadow-neon);
+  }
+
+  .neon-glow-purple {
+    box-shadow: 0 0 20px hsl(271 91% 65% / 0.4);
+  }
+
+  /* Animated gradient border */
+  .gradient-border {
+    background: var(--gradient-primary);
+    padding: 1px;
+    border-radius: calc(var(--radius) + 1px);
+  }
+
+  /* XP bar gradient */
+  .xp-bar {
+    background: linear-gradient(90deg, hsl(221 83% 53%), hsl(271 91% 65%));
+  }
+
+  /* Card hover lift */
+  .card-hover {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  /* Streak flame gradient */
+  .streak-gradient {
+    background: linear-gradient(135deg, hsl(38 92% 50%), hsl(0 84% 60%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}

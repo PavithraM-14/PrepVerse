@@ -51,16 +51,19 @@ export default function CodingPage() {
 
   const loadProblems = async () => {
     if (!user) return;
-    const { data } = await supabase.from('coding_tracker').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+    const { data } = await supabase.from('coding_problems').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
     setProblems(Array.isArray(data) ? data : []);
   };
 
   const addProblem = async () => {
     if (!newProblem.name.trim() || !user) return;
     setAddingProblem(true);
-    const { data } = await supabase.from('coding_tracker').insert({
+    const { data } = await supabase.from('coding_problems').insert({
       user_id: user.id,
-      ...newProblem,
+      problem_name: newProblem.name.trim(),
+      platform: newProblem.platform,
+      difficulty: newProblem.difficulty,
+      topic: newProblem.topic,
       status: 'todo',
     }).select().maybeSingle();
     setAddingProblem(false);
@@ -72,7 +75,7 @@ export default function CodingPage() {
   };
 
   const updateStatus = async (id: string, status: 'todo' | 'in_progress' | 'solved') => {
-    await supabase.from('coding_tracker').update({
+    await supabase.from('coding_problems').update({
       status,
       solved_at: status === 'solved' ? new Date().toISOString() : null,
     }).eq('id', id);

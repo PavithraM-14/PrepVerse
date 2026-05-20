@@ -1,0 +1,31 @@
+GOOGLE OAUTH SETUP CHECKLIST
+================================
+
+□ 1. Google Cloud Console (https://console.cloud.google.com/)
+   □ Create/select project "PrepVerse"
+   □ Enable Google+ API (APIs & Services → Library)
+   □ Create OAuth 2.0 Client ID (APIs & Services → Credentials)
+   □ Add redirect URI: https://frztnflswxgqadmcrmum.supabase.co/auth/v1/callback
+   □ Copy Client ID: ________________________
+   □ Copy Client Secret: ____________________
+
+□ 2. Supabase Dashboard (https://supabase.com/dashboard/project/frztnflswxgqadmcrmum/auth/providers)
+   □ Find Google provider
+   □ Enable "Sign in with Google"
+   □ Paste Client ID
+   □ Paste Client Secret
+   □ Set Site URL: https://[YOUR-VERCEL-APP].vercel.app
+   □ Set Redirect URL: https://[YOUR-VERCEL-APP].vercel.app/dashboard
+   □ Save configuration
+
+□ 3. Re-enable Google Button
+   □ Uncomment Google login button in LoginPage.tsx
+   □ Push to git
+   □ Deploy to Vercel
+
+□ 4. Test
+   □ Try Google login
+   □ Should work now!
+
+CURRENT STATUS: Google login temporarily disabled to prevent errors
+NEXT STEP: Complete checklist above, then re-enable the button

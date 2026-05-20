@@ -234,20 +234,18 @@ export default function LoginPage() {
               <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">or continue with</span>
+              <span className="bg-card px-2 text-muted-foreground">Google OAuth Setup Required</span>
             </div>
           </div>
 
-          {/* Google SSO */}
-          <Button
-            variant="outline"
-            className="w-full h-11"
-            onClick={handleGoogle}
-            disabled={googleLoading}
-          >
-            <Chrome className="w-4 h-4 mr-2" />
-            {googleLoading ? 'Redirecting...' : 'Continue with Google'}
-          </Button>
+          {/* Google SSO - Temporarily Disabled */}
+          <div className="w-full h-11 border border-border rounded-lg flex items-center justify-center bg-muted/50">
+            <Chrome className="w-4 h-4 mr-2 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Google Login (Setup Required)</span>
+          </div>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Google OAuth needs to be configured in Supabase dashboard
+          </p>
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">

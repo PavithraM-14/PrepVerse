@@ -50,6 +50,8 @@ export interface Task {
   category: string;
   is_completed: boolean;
   due_date: string | null;
+  reminder_time: string | null;
+  notification_sent: boolean;
   xp_reward: number;
   created_at: string;
   completed_at: string | null;
@@ -94,6 +96,8 @@ export interface ResumeAnalysis {
   id: string;
   user_id: string;
   file_name: string | null;
+  file_url: string | null;
+  file_size: number | null;
   ats_score: number | null;
   analysis_mode: string;
   analysis_result: ResumeAnalysisResult | null;
@@ -106,9 +110,12 @@ export interface ResumeAnalysisResult {
   ats_score: number;
   grammar_score: number;
   keyword_score: number;
+  recruiter_impression: string;
   strengths: string[];
   weaknesses: string[];
   missing_skills: string[];
+  grammar_issues: string[];
+  formatting_feedback: string[];
   suggestions: string[];
   roast?: string;
   feedback: string;

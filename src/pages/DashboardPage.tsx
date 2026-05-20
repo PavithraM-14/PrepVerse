@@ -15,7 +15,8 @@ import { streamGemini, type GeminiMessage } from '@/lib/sse';
 import {
   Flame, Trophy, Target, CheckCircle, Brain, Zap,
   BookOpen, Code2, FileText, MessageSquare, ArrowRight,
-  TrendingUp, Bell, ChevronRight, Star, Users,
+  TrendingUp, Bell, ChevronRight, Star, Users, History,
+  Clock, AlertTriangle, Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -45,6 +46,7 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [persona, setPersona] = useState<PlacementPersona | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [taskReminders, setTaskReminders] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiTip, setAiTip] = useState('');
   const [tipLoading, setTipLoading] = useState(false);
@@ -53,6 +55,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     loadDashboard();
+    
+    // Set up periodic reminder checking every minute
+    const reminderInterval = setInterval(() => {
+      checkTaskReminders();
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(reminderInterval);
   }, [user]);
 
   const loadDashboard = async () => {
@@ -83,10 +92,52 @@ export default function DashboardPage() {
       setTasks(Array.isArray(tasksRes.data) ? tasksRes.data : []);
       setPersona(personaRes.data);
       setNotifications(Array.isArray(notifsRes.data) ? notifsRes.data : []);
+      
+      // Check for task reminders
+      await checkTaskReminders();
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkTaskReminders = async () => {
+    if (!user) return;
+    
+    const now = new Date();
+    const in30Minutes = new Date(now.getTime() + 30 * 60 * 1000);
+    
+    // Get tasks with reminders that are due soon or overdue
+    const { data: reminderTasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_completed', false)
+      .not('reminder_time', 'is', null)
+      .lte('reminder_time', in30Minutes.toISOString())
+      .order('reminder_time', { ascending: true });
+    
+    if (reminderTasks && reminderTasks.length > 0) {
+      setTaskReminders(reminderTasks);
+      
+      // Create notifications for overdue tasks
+      const overdueTasks = reminderTasks.filter(task => 
+        new Date(task.reminder_time!) < now && !task.notification_sent
+      );
+      
+      for (const task of overdueTasks) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: 'Task Overdue!',
+          message: `"${task.title}" was due at ${new Date(task.reminder_time!).toLocaleTimeString()}`,
+          type: 'warning',
+          is_read: false,
+        });
+        
+        // Mark notification as sent
+        await supabase.from('tasks').update({ notification_sent: true }).eq('id', task.id);
+      }
     }
   };
 
@@ -284,32 +335,100 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* AI Tip + Notifications */}
+        {/* AI Daily Tip */}
+        <Card className="glass border-border/40 stats-gradient-1">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" /> AI Tip of the Day
+              </CardTitle>
+              <Button size="sm" variant="ghost" onClick={generateAiTip} disabled={tipLoading} className="hover:bg-primary/10">
+                {tipLoading ? '...' : <TrendingUp className="w-4 h-4" />}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {aiTip ? (
+              <Streamdown parseIncompleteMarkdown isAnimating={tipLoading} className="text-muted-foreground [&>*]:m-0">
+                {aiTip}
+              </Streamdown>
+            ) : (
+              <p className="text-muted-foreground text-pretty">{getTipOfDay(progress)}</p>
+            )}
+            {!aiTip && (
+              <Button size="sm" variant="outline" className="mt-4 glass border-border/40" onClick={generateAiTip} disabled={tipLoading}>
+                Get AI Tip <ArrowRight className="w-3 h-3 ml-1" />
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Task Reminders + Notifications */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* AI Daily Tip */}
-          <Card className="glass border-border/40 stats-gradient-1">
+          {/* Task Reminders */}
+          <Card className="glass border-border/40 h-full flex flex-col">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" /> AI Tip of the Day
+                  <Clock className="w-5 h-5 text-warning" /> Study Reminders
                 </CardTitle>
-                <Button size="sm" variant="ghost" onClick={generateAiTip} disabled={tipLoading} className="hover:bg-primary/10">
-                  {tipLoading ? '...' : <TrendingUp className="w-4 h-4" />}
-                </Button>
+                {taskReminders.length > 0 && (
+                  <Badge className="bg-warning/10 text-warning border-0">{taskReminders.length}</Badge>
+                )}
               </div>
             </CardHeader>
-            <CardContent>
-              {aiTip ? (
-                <Streamdown parseIncompleteMarkdown isAnimating={tipLoading} className="text-muted-foreground [&>*]:m-0">
-                  {aiTip}
-                </Streamdown>
+            <CardContent className="flex-1">
+              {taskReminders.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Calendar className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                  <p>No upcoming reminders</p>
+                  <Button size="sm" variant="outline" className="mt-3 glass border-border/40" onClick={() => navigate('/planner')}>
+                    Schedule Tasks
+                  </Button>
+                </div>
               ) : (
-                <p className="text-muted-foreground text-pretty">{getTipOfDay(progress)}</p>
-              )}
-              {!aiTip && (
-                <Button size="sm" variant="outline" className="mt-4 glass border-border/40" onClick={generateAiTip} disabled={tipLoading}>
-                  Get AI Tip <ArrowRight className="w-3 h-3 ml-1" />
-                </Button>
+                <div className="space-y-3">
+                  {taskReminders.map((task) => {
+                    const reminderTime = new Date(task.reminder_time!);
+                    const now = new Date();
+                    const isOverdue = reminderTime < now;
+                    const timeUntil = Math.abs(reminderTime.getTime() - now.getTime());
+                    const minutesUntil = Math.floor(timeUntil / (1000 * 60));
+                    
+                    return (
+                      <div key={task.id} className="flex items-start gap-4 p-3 rounded-xl glass border-border/30">
+                        <div className={`w-3 h-3 rounded-full shrink-0 mt-2 ${isOverdue ? 'bg-destructive' : 'bg-warning'}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{task.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {isOverdue ? (
+                              <div className="flex items-center gap-1 text-destructive">
+                                <AlertTriangle className="w-3 h-3" />
+                                <span className="text-xs">Overdue by {minutesUntil}m</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 text-warning">
+                                <Clock className="w-3 h-3" />
+                                <span className="text-xs">Due in {minutesUntil}m</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {reminderTime.toLocaleDateString()} at {reminderTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="shrink-0"
+                          onClick={() => toggleTask(task)}
+                        >
+                          Done
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -357,9 +476,11 @@ export default function DashboardPage() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <Target className="w-4 h-4 text-neon-blue" /> Your Roadmap to {persona.dream_company}
                 </CardTitle>
-                <Button size="sm" variant="ghost" onClick={() => navigate('/onboarding')}>
-                  View All <ChevronRight className="w-3 h-3 ml-1" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => navigate('/roadmap')}>
+                    View All <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -369,6 +490,12 @@ export default function DashboardPage() {
                     Week {i + 1}: {goal}
                   </Badge>
                 ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-border/30">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <History className="w-3 h-3" />
+                  View your roadmap history and track your progress over time
+                </p>
               </div>
             </CardContent>
           </Card>

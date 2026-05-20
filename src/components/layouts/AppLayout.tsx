@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+// @ts-ignore
+import { supabase } from '@/db/supabase';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -8,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Streamdown } from 'streamdown';
 import { streamGemini, type GeminiMessage } from '@/lib/sse';
 import {
-  Zap, LayoutDashboard, FileText, MessageSquare, BookOpen,
+  LayoutDashboard, FileText, MessageSquare, BookOpen,
   Code2, Trophy, User, Menu, X, LogOut, Bell, Send,
   Bot, ChevronDown, Moon, Sun, Target,
 } from 'lucide-react';
@@ -17,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Target, label: 'My Roadmap', path: '/onboarding' },
+  { icon: Target, label: 'My Roadmap', path: '/roadmap' },
   { icon: FileText, label: 'Resume AI', path: '/resume' },
   { icon: MessageSquare, label: 'Interview AI', path: '/interview' },
   { icon: BookOpen, label: 'Study Planner', path: '/planner' },
@@ -159,11 +161,48 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadUnreadCount = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+      
+      setUnreadCount(count || 0);
+    };
+
+    loadUnreadCount();
+    
+    // Set up real-time subscription for notifications
+    const subscription = supabase
+      .channel('notifications')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        }, 
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user]);
 
   const toggleTheme = () => {
     const next = !isDark;
@@ -186,7 +225,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Logo */}
       <div className="flex items-center gap-2 px-6 py-5 border-b border-sidebar-border">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
-          <img src="/images/logo.png" alt="PrepVerse Logo" className="w-8 h-8 rounded-lg object-contain" />
+          <img src="/images/logo.png.ico" alt="PrepVerse Logo" className="w-8 h-8 rounded-lg object-contain" />
         </div>
         <span className="font-bold text-lg gradient-text">PrepVerse</span>
       </div>
@@ -266,9 +305,16 @@ export function AppLayout({ children }: AppLayoutProps) {
             <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-accent transition-colors text-foreground hidden md:block">
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-            <button className="p-2 rounded-lg hover:bg-accent transition-colors text-foreground relative">
+            <button 
+              onClick={() => navigate('/notifications')} 
+              className="p-2 rounded-lg hover:bg-accent transition-colors text-foreground relative"
+            >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-destructive" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center font-medium">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
             <Avatar className="h-8 w-8 cursor-pointer" onClick={() => navigate('/profile')}>
               <AvatarFallback className="xp-bar text-white text-xs">{initials}</AvatarFallback>

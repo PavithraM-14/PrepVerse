@@ -82,7 +82,7 @@ export async function sendStreamRequest(options: StreamRequestOptions): Promise<
         'Content-Type': 'application/json',
       },
       signal,
-      timeout: 120000,
+      timeout: 45000,
       hooks: { afterResponse: [sseHook] },
     });
   } catch (err) {
@@ -106,21 +106,45 @@ export async function streamGemini(
   systemPrompt?: string,
   signal?: AbortSignal
 ): Promise<void> {
-  await sendStreamRequest({
-    functionUrl: `${supabaseUrl}/functions/v1/large-language-model`,
-    requestBody: { contents, systemPrompt },
-    supabaseAnonKey,
-    onData: (data) => {
-      try {
-        const parsed = JSON.parse(data);
-        const chunk = parsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-        if (chunk) onChunk(chunk);
-      } catch {
-        // incomplete chunk, skip
-      }
-    },
-    onComplete: onDone,
-    onError,
-    signal,
+  // Create a timeout promise that rejects after 30 seconds
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error('Request timeout - analysis took too long. Please try again.'));
+    }, 30000); // 30 second timeout
+    
+    // Clear timeout if signal is aborted
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timeoutId);
+    });
   });
+
+  // Race between the actual request and timeout
+  try {
+    await Promise.race([
+      sendStreamRequest({
+        functionUrl: `${supabaseUrl}/functions/v1/large-language-model`,
+        requestBody: { contents, systemPrompt },
+        supabaseAnonKey,
+        onData: (data) => {
+          try {
+            const parsed = JSON.parse(data);
+            const chunk = parsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+            if (chunk) onChunk(chunk);
+          } catch {
+            // incomplete chunk, skip
+          }
+        },
+        onComplete: onDone,
+        onError,
+        signal,
+      }),
+      timeoutPromise
+    ]);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('timeout')) {
+      onError(error);
+    } else {
+      throw error;
+    }
+  }
 }

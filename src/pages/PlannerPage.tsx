@@ -13,7 +13,7 @@ import { streamGemini, type GeminiMessage } from '@/lib/sse';
 import type { Task, Mood } from '@/types/types';
 import {
   BookOpen, Plus, CheckCircle, Trash2, Sparkles,
-  Zap, Brain, Battery, Rocket, Coffee,
+  Zap, Brain, Battery, Rocket, Coffee, Calendar, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,8 @@ export default function PlannerPage() {
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState('');
+  const [newTaskDate, setNewTaskDate] = useState('');
+  const [newTaskTime, setNewTaskTime] = useState('');
   const [aiPlan, setAiPlan] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [hours, setHours] = useState('4');
@@ -56,17 +58,28 @@ export default function PlannerPage() {
   const addTask = async () => {
     if (!newTask.trim() || !user) return;
     setLoading(true);
+    
+    let reminderTime = null;
+    if (newTaskDate && newTaskTime) {
+      reminderTime = new Date(`${newTaskDate}T${newTaskTime}`).toISOString();
+    }
+    
     const { data } = await supabase.from('tasks').insert({
       user_id: user.id,
       title: newTask.trim(),
       category: 'study',
+      reminder_time: reminderTime,
+      notification_sent: false,
       xp_reward: 15,
     }).select().maybeSingle();
+    
     setLoading(false);
     if (data) {
       setTasks(prev => [data, ...prev]);
       setNewTask('');
-      toast.success('Task added!');
+      setNewTaskDate('');
+      setNewTaskTime('');
+      toast.success('Task added with reminder!');
     }
   };
 
@@ -238,17 +251,45 @@ Create a structured hourly schedule with specific tasks. Be concise and practica
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 space-y-3">
-              <div className="flex gap-2">
-                <Input
-                  value={newTask}
-                  onChange={(e) => setNewTask(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addTask()}
-                  placeholder="e.g. Solve 5 LeetCode problems"
-                  className="flex-1"
-                />
-                <Button onClick={addTask} disabled={loading || !newTask.trim()} className="xp-bar border-0 text-white shrink-0">
-                  <Plus className="w-4 h-4" />
-                </Button>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={newTask}
+                    onChange={(e) => setNewTask(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addTask()}
+                    placeholder="e.g. Solve 5 LeetCode problems"
+                    className="flex-1"
+                  />
+                  <Button onClick={addTask} disabled={loading || !newTask.trim()} className="xp-bar border-0 text-white shrink-0">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                {/* Date and Time pickers */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> Due Date
+                    </Label>
+                    <Input
+                      type="date"
+                      value={newTaskDate}
+                      onChange={(e) => setNewTaskDate(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Time
+                    </Label>
+                    <Input
+                      type="time"
+                      value={newTaskTime}
+                      onChange={(e) => setNewTaskTime(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Stats */}
@@ -294,9 +335,19 @@ Create a structured hourly schedule with specific tasks. Be concise and practica
                       >
                         {task.is_completed && <CheckCircle className="w-3 h-3 text-white" />}
                       </button>
-                      <span className={cn('text-sm flex-1 min-w-0 truncate', task.is_completed && 'line-through text-muted-foreground')}>
-                        {task.title}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className={cn('text-sm block truncate', task.is_completed && 'line-through text-muted-foreground')}>
+                          {task.title}
+                        </span>
+                        {task.reminder_time && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Clock className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(task.reminder_time).toLocaleDateString()} at {new Date(task.reminder_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                       <Badge variant="secondary" className="text-xs shrink-0">+{task.xp_reward}</Badge>
                       <button
                         onClick={() => deleteTask(task.id)}

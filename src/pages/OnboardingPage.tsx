@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 // @ts-ignore
@@ -16,7 +16,7 @@ import type { RoadmapData } from '@/types/types';
 import {
   Brain, Target, ChevronRight, ChevronLeft,
   Sparkles, CheckCircle, Building2, Code2,
-  BookOpen, Clock, TrendingUp,
+  BookOpen, Clock, TrendingUp, Calendar, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ export default function OnboardingPage() {
   const [roadmapText, setRoadmapText] = useState('');
   const [roadmapStreaming, setRoadmapStreaming] = useState(false);
   const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   const [form, setForm] = useState({
@@ -44,6 +45,55 @@ export default function OnboardingPage() {
     confidence: 5,
     timeline: '',
   });
+
+  // Load existing persona data when component mounts
+  useEffect(() => {
+    if (user) {
+      loadExistingPersona();
+    } else {
+      // If no user, don't show loading state
+      setLoadingExisting(false);
+    }
+
+    // Fallback timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setLoadingExisting(false);
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [user]);
+
+  const loadExistingPersona = async () => {
+    if (!user) return;
+    
+    setLoadingExisting(true);
+    try {
+      const { data, error } = await supabase
+        .from('placement_personas')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data && !error) {
+        // Pre-populate form with existing data
+        setForm({
+          dreamCompany: data.dream_company || '',
+          skillLevel: data.current_skill_level || '',
+          preferredRole: data.preferred_role || '',
+          weakSubjects: data.weak_subjects || [],
+          confidence: data.confidence_level || 5,
+          timeline: data.placement_timeline || '',
+        });
+        toast.info('Loaded your previous settings for updating');
+      }
+    } catch (error) {
+      console.error('Error loading existing persona:', error);
+    } finally {
+      setLoadingExisting(false);
+    }
+  };
 
   const steps = [
     { label: 'Dream Company', icon: Building2 },
@@ -117,7 +167,8 @@ Respond ONLY with valid JSON in this exact format:
 
         // Save to DB
         if (user) {
-          const { error } = await supabase.from('placement_personas').upsert({
+          // Always create a new persona entry to maintain history
+          await supabase.from('placement_personas').insert({
             user_id: user.id,
             dream_company: form.dreamCompany,
             current_skill_level: form.skillLevel,
@@ -126,21 +177,7 @@ Respond ONLY with valid JSON in this exact format:
             confidence_level: form.confidence,
             placement_timeline: form.timeline,
             roadmap: parsedRoadmap,
-          }, { onConflict: 'user_id' });
-
-          if (error) {
-            // Try insert if upsert fails
-            await supabase.from('placement_personas').insert({
-              user_id: user.id,
-              dream_company: form.dreamCompany,
-              current_skill_level: form.skillLevel,
-              preferred_role: form.preferredRole,
-              weak_subjects: form.weakSubjects,
-              confidence_level: form.confidence,
-              placement_timeline: form.timeline,
-              roadmap: parsedRoadmap,
-            });
-          }
+          });
 
           // Add XP for completing onboarding
           await supabase.rpc('increment_xp', { p_user_id: user.id, p_amount: 100 });
@@ -169,29 +206,42 @@ Respond ONLY with valid JSON in this exact format:
         {/* Progress */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-bold gradient-text">AI Placement Persona</h1>
+            <h1 className="text-2xl font-bold gradient-text">
+              {loadingExisting ? 'Loading...' : (form.dreamCompany ? 'Update Your Roadmap' : 'AI Placement Persona')}
+            </h1>
             <span className="text-sm text-muted-foreground">Step {step + 1} of {steps.length}</span>
           </div>
-          <Progress value={((step + 1) / steps.length) * 100} className="h-2 [&>div]:xp-bar" />
-          <div className="flex justify-between mt-2">
-            {steps.map((s, i) => (
-              <div key={s.label} className={cn(
-                'flex flex-col items-center gap-1 text-xs',
-                i <= step ? 'text-primary' : 'text-muted-foreground'
-              )}>
-                <div className={cn(
-                  'w-7 h-7 rounded-full flex items-center justify-center',
-                  i < step ? 'xp-bar text-white' : i === step ? 'border-2 border-primary bg-primary/10 text-primary' : 'border-2 border-border bg-background'
-                )}>
-                  {i < step ? <CheckCircle className="w-4 h-4" /> : <s.icon className="w-3 h-3" />}
-                </div>
-                <span className="hidden md:block text-balance text-center w-16">{s.label}</span>
+          {loadingExisting ? (
+            <div className="text-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+              <p className="text-sm text-muted-foreground">Loading your previous settings...</p>
+            </div>
+          ) : (
+            <>
+              <Progress value={((step + 1) / steps.length) * 100} className="h-2 [&>div]:xp-bar" />
+              <div className="flex justify-between mt-2">
+                {steps.map((s, i) => (
+                  <div key={s.label} className={cn(
+                    'flex flex-col items-center gap-1 text-xs',
+                    i <= step ? 'text-primary' : 'text-muted-foreground'
+                  )}>
+                    <div className={cn(
+                      'w-7 h-7 rounded-full flex items-center justify-center',
+                      i < step ? 'xp-bar text-white' : i === step ? 'border-2 border-primary bg-primary/10 text-primary' : 'border-2 border-border bg-background'
+                    )}>
+                      {i < step ? <CheckCircle className="w-4 h-4" /> : <s.icon className="w-3 h-3" />}
+                    </div>
+                    <span className="hidden md:block text-balance text-center w-16">{s.label}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
 
-        <Card className="border-border/60 min-h-96">
+        {!loadingExisting && (
+          <>
+            <Card className="border-border/60 min-h-96">
           {/* Step 0: Dream Company */}
           {step === 0 && (
             <>
@@ -381,12 +431,71 @@ Respond ONLY with valid JSON in this exact format:
                       ))}
                     </div>
 
+                    {/* Roadmap Phases Table */}
+                    {roadmap.phases && roadmap.phases.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" />
+                          Detailed Roadmap Phases
+                        </h3>
+                        <div className="border border-border/60 rounded-xl overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-accent/50">
+                                <tr>
+                                  <th className="text-left p-3 text-xs font-semibold text-muted-foreground border-b border-border/30">Week</th>
+                                  <th className="text-left p-3 text-xs font-semibold text-muted-foreground border-b border-border/30">Phase Title</th>
+                                  <th className="text-left p-3 text-xs font-semibold text-muted-foreground border-b border-border/30">Focus Area</th>
+                                  <th className="text-left p-3 text-xs font-semibold text-muted-foreground border-b border-border/30">Key Tasks</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {roadmap.phases.map((phase, index) => (
+                                  <tr key={index} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
+                                    <td className="p-3">
+                                      <Badge className="xp-bar border-0 text-white text-xs">
+                                        Week {phase.week}
+                                      </Badge>
+                                    </td>
+                                    <td className="p-3">
+                                      <p className="text-sm font-medium">{phase.title}</p>
+                                    </td>
+                                    <td className="p-3">
+                                      <p className="text-sm text-muted-foreground">{phase.focus}</p>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="space-y-1">
+                                        {phase.tasks.slice(0, 3).map((task, taskIndex) => (
+                                          <div key={taskIndex} className="flex items-start gap-2">
+                                            <CheckCircle className="w-3 h-3 text-success mt-0.5 shrink-0" />
+                                            <p className="text-xs text-muted-foreground">{task}</p>
+                                          </div>
+                                        ))}
+                                        {phase.tasks.length > 3 && (
+                                          <p className="text-xs text-muted-foreground italic">
+                                            +{phase.tasks.length - 3} more tasks...
+                                          </p>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Weekly goals */}
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">Weekly Goals</h3>
-                      <div className="space-y-2">
+                      <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        Weekly Goals Summary
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {(roadmap.weekly_goals || []).map((g, i) => (
-                          <div key={i} className="flex items-center gap-2">
+                          <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-accent/20">
                             <Badge className="xp-bar border-0 text-white text-xs w-16 justify-center shrink-0">
                               Week {i + 1}
                             </Badge>
@@ -396,12 +505,33 @@ Respond ONLY with valid JSON in this exact format:
                       </div>
                     </div>
 
+                    {/* Daily Tasks */}
+                    {roadmap.daily_tasks && roadmap.daily_tasks.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-primary" />
+                          Daily Tasks
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {roadmap.daily_tasks.map((task, i) => (
+                            <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-accent/20">
+                              <Sparkles className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                              <p className="text-sm text-muted-foreground">{task}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Recommendations */}
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">AI Recommendations</h3>
+                      <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        AI Recommendations
+                      </h3>
                       <div className="space-y-2">
                         {(roadmap.recommendations || []).map((r, i) => (
-                          <div key={i} className="flex items-start gap-2">
+                          <div key={i} className="flex items-start gap-2 p-3 rounded-lg bg-gradient-to-r from-primary/5 to-neon-purple/5 border border-primary/20">
                             <Sparkles className="w-3 h-3 text-primary mt-0.5 shrink-0" />
                             <p className="text-sm text-muted-foreground text-pretty">{r}</p>
                           </div>
@@ -435,16 +565,20 @@ Respond ONLY with valid JSON in this exact format:
               onClick={() => setStep(s => s - 1)}
               disabled={step === 0}
             >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Back
             </Button>
             <Button
               onClick={handleNext}
               disabled={!canNext()}
               className="xp-bar border-0 text-white"
             >
-              {step === 3 ? 'Generate Roadmap' : 'Next'} <ChevronRight className="w-4 h-4 ml-1" />
+              {step === 3 ? 'Generate Roadmap' : 'Next'}
+              <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
+        )}
+        </>
         )}
       </div>
     </AppLayout>

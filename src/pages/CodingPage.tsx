@@ -51,38 +51,184 @@ export default function CodingPage() {
 
   const loadProblems = async () => {
     if (!user) return;
-    const { data } = await supabase.from('coding_problems').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
-    setProblems(Array.isArray(data) ? data : []);
+    try {
+      // Try to load from coding_problems table first
+      let { data, error } = await supabase.from('coding_problems').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+      
+      // If table doesn't exist, try loading from tasks with coding category
+      if (error && error.message.includes('relation "public.coding_problems" does not exist')) {
+        console.log('coding_problems table not found, loading from tasks instead');
+        const tasksResult = await supabase.from('tasks').select('*').eq('user_id', user.id).eq('category', 'coding').order('created_at', { ascending: false }).limit(50);
+        
+        if (tasksResult.error) {
+          console.error('Error loading tasks:', tasksResult.error);
+          toast.error(`Failed to load problems: ${tasksResult.error.message}`);
+          return;
+        }
+        
+        // Convert tasks to coding problem format
+        const codingProblems = (tasksResult.data || []).map(task => {
+          // Try to parse the title to extract platform and problem name
+          const titleMatch = task.title.match(/^([^:]+):\s*(.+?)\s*\(([^)]+)\)$/);
+          return {
+            id: task.id,
+            user_id: task.user_id,
+            problem_name: titleMatch ? titleMatch[2] : task.title,
+            platform: titleMatch ? titleMatch[1] : 'Unknown',
+            difficulty: titleMatch ? titleMatch[3] : 'Medium',
+            topic: task.description?.replace('Topic: ', '') || 'General',
+            status: task.is_completed ? 'solved' : 'todo' as const,
+            notes: null,
+            solved_at: task.completed_at,
+            created_at: task.created_at,
+          };
+        });
+        
+        setProblems(codingProblems);
+        return;
+      }
+      
+      if (error) {
+        console.error('Error loading problems:', error);
+        toast.error(`Failed to load problems: ${error.message}`);
+        return;
+      }
+      
+      setProblems(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Unexpected error loading problems:', err);
+      toast.error(`Failed to load problems: ${err.message || 'Unknown error'}`);
+    }
   };
 
   const addProblem = async () => {
-    if (!newProblem.name.trim() || !user) return;
-    setAddingProblem(true);
-    const { data } = await supabase.from('coding_problems').insert({
+    if (!newProblem.name.trim() || !user) {
+      toast.error('Please enter a problem name');
+      return;
+    }
+    
+    console.log('Adding problem:', {
       user_id: user.id,
       problem_name: newProblem.name.trim(),
       platform: newProblem.platform,
       difficulty: newProblem.difficulty,
       topic: newProblem.topic,
       status: 'todo',
-    }).select().maybeSingle();
-    setAddingProblem(false);
-    if (data) {
-      setProblems(prev => [data, ...prev]);
-      setNewProblem(p => ({ ...p, name: '' }));
-      toast.success('Problem added!');
+    });
+    
+    setAddingProblem(true);
+    try {
+      // Try coding_problems table first
+      let { data, error } = await supabase.from('coding_problems').insert({
+        user_id: user.id,
+        problem_name: newProblem.name.trim(),
+        platform: newProblem.platform,
+        difficulty: newProblem.difficulty,
+        topic: newProblem.topic,
+        status: 'todo',
+      }).select().maybeSingle();
+      
+      // If coding_problems table doesn't exist, try creating a task instead
+      if (error && error.message.includes('relation "public.coding_problems" does not exist')) {
+        console.log('coding_problems table not found, creating as task instead');
+        const taskResult = await supabase.from('tasks').insert({
+          user_id: user.id,
+          title: `${newProblem.platform}: ${newProblem.name.trim()} (${newProblem.difficulty})`,
+          description: `Topic: ${newProblem.topic}`,
+          category: 'coding',
+          xp_reward: newProblem.difficulty === 'Easy' ? 15 : newProblem.difficulty === 'Medium' ? 25 : 35,
+        }).select().maybeSingle();
+        
+        if (taskResult.error) {
+          throw taskResult.error;
+        }
+        
+        // Convert task to coding problem format for display
+        if (taskResult.data) {
+          const codingProblem = {
+            id: taskResult.data.id,
+            user_id: taskResult.data.user_id,
+            problem_name: newProblem.name.trim(),
+            platform: newProblem.platform,
+            difficulty: newProblem.difficulty,
+            topic: newProblem.topic,
+            status: 'todo' as const,
+            notes: null,
+            solved_at: null,
+            created_at: taskResult.data.created_at,
+          };
+          
+          setProblems(prev => [codingProblem, ...prev]);
+          setNewProblem(p => ({ ...p, name: '' }));
+          toast.success('Problem added successfully! (Note: Please run the database setup script to create the proper coding_problems table)');
+          setAddingProblem(false);
+          return;
+        }
+      }
+      
+      if (error) {
+        console.error('Error adding problem:', error);
+        toast.error(`Failed to add problem: ${error.message}`);
+        setAddingProblem(false);
+        return;
+      }
+      
+      if (data) {
+        setProblems(prev => [data, ...prev]);
+        setNewProblem(p => ({ ...p, name: '' }));
+        toast.success('Problem added successfully!');
+      } else {
+        toast.error('No data returned after adding problem');
+      }
+    } catch (err: any) {
+      console.error('Unexpected error adding problem:', err);
+      toast.error(`Failed to add problem: ${err.message || 'Unknown error'}`);
+    } finally {
+      setAddingProblem(false);
     }
   };
 
   const updateStatus = async (id: string, status: 'todo' | 'in_progress' | 'solved') => {
-    await supabase.from('coding_problems').update({
-      status,
-      solved_at: status === 'solved' ? new Date().toISOString() : null,
-    }).eq('id', id);
-    setProblems(prev => prev.map(p => p.id === id ? { ...p, status, solved_at: status === 'solved' ? new Date().toISOString() : null } : p));
-    if (status === 'solved') {
-      toast.success('+20 XP! Problem solved! 🎉');
-      if (user) await supabase.rpc('increment_xp', { p_user_id: user.id, p_amount: 20 });
+    try {
+      // Try updating in coding_problems table first
+      let { error } = await supabase.from('coding_problems').update({
+        status,
+        solved_at: status === 'solved' ? new Date().toISOString() : null,
+      }).eq('id', id);
+      
+      // If table doesn't exist, try updating in tasks table
+      if (error && error.message.includes('relation "public.coding_problems" does not exist')) {
+        console.log('coding_problems table not found, updating task instead');
+        const taskUpdate = await supabase.from('tasks').update({
+          is_completed: status === 'solved',
+          completed_at: status === 'solved' ? new Date().toISOString() : null,
+        }).eq('id', id);
+        
+        if (taskUpdate.error) {
+          console.error('Error updating task:', taskUpdate.error);
+          toast.error(`Failed to update status: ${taskUpdate.error.message}`);
+          return;
+        }
+      } else if (error) {
+        console.error('Error updating problem status:', error);
+        toast.error(`Failed to update status: ${error.message}`);
+        return;
+      }
+      
+      // Update local state
+      setProblems(prev => prev.map(p => p.id === id ? { 
+        ...p, 
+        status, 
+        solved_at: status === 'solved' ? new Date().toISOString() : null 
+      } : p));
+      
+      if (status === 'solved') {
+        toast.success('+20 XP! Problem solved! 🎉');
+        if (user) await supabase.rpc('increment_xp', { p_user_id: user.id, p_amount: 20 });
+      }
+    } catch (err: any) {
+      console.error('Unexpected error updating status:', err);
+      toast.error(`Failed to update status: ${err.message || 'Unknown error'}`);
     }
   };
 

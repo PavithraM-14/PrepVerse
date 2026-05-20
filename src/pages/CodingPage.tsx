@@ -274,7 +274,12 @@ export default function CodingPage() {
       }).eq('id', id);
       
       // If table doesn't exist, try updating in tasks table
-      if (error && error.message.includes('relation "public.coding_problems" does not exist')) {
+      if (error && (
+        error.message.includes('relation "public.coding_problems" does not exist') ||
+        error.message.includes('Could not find the table') ||
+        error.message.includes('coding_problems') ||
+        error.code === 'PGRST116'
+      )) {
         console.log('coding_problems table not found, updating task instead');
         const taskUpdate = await supabase.from('tasks').update({
           is_completed: status === 'solved',
@@ -288,8 +293,23 @@ export default function CodingPage() {
         }
       } else if (error) {
         console.error('Error updating problem status:', error);
-        toast.error(`Failed to update status: ${error.message}`);
-        return;
+        
+        // Try fallback even if we get other errors
+        try {
+          console.log('Attempting fallback to tasks table for status update...');
+          const taskUpdate = await supabase.from('tasks').update({
+            is_completed: status === 'solved',
+            completed_at: status === 'solved' ? new Date().toISOString() : null,
+          }).eq('id', id);
+          
+          if (taskUpdate.error) {
+            toast.error(`Failed to update status: ${taskUpdate.error.message}`);
+            return;
+          }
+        } catch (fallbackErr: any) {
+          toast.error(`Failed to update status: ${error.message}`);
+          return;
+        }
       }
       
       // Update local state
@@ -302,10 +322,40 @@ export default function CodingPage() {
       if (status === 'solved') {
         toast.success('+20 XP! Problem solved! 🎉');
         if (user) await supabase.rpc('increment_xp', { p_user_id: user.id, p_amount: 20 });
+      } else {
+        toast.success('Status updated successfully!');
       }
     } catch (err: any) {
       console.error('Unexpected error updating status:', err);
-      toast.error(`Failed to update status: ${err.message || 'Unknown error'}`);
+      
+      // Final fallback attempt
+      try {
+        console.log('Final fallback attempt for status update...');
+        const taskUpdate = await supabase.from('tasks').update({
+          is_completed: status === 'solved',
+          completed_at: status === 'solved' ? new Date().toISOString() : null,
+        }).eq('id', id);
+        
+        if (taskUpdate.error) {
+          toast.error(`Failed to update status: ${taskUpdate.error.message}`);
+        } else {
+          // Update local state
+          setProblems(prev => prev.map(p => p.id === id ? { 
+            ...p, 
+            status, 
+            solved_at: status === 'solved' ? new Date().toISOString() : null 
+          } : p));
+          
+          if (status === 'solved') {
+            toast.success('+20 XP! Problem solved! 🎉');
+            if (user) await supabase.rpc('increment_xp', { p_user_id: user.id, p_amount: 20 });
+          } else {
+            toast.success('Status updated successfully!');
+          }
+        }
+      } catch (finalErr: any) {
+        toast.error(`Failed to update status: ${finalErr.message || 'Unknown error'}`);
+      }
     }
   };
 

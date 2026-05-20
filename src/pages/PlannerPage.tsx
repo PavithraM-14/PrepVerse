@@ -56,30 +56,64 @@ export default function PlannerPage() {
   };
 
   const addTask = async () => {
-    if (!newTask.trim() || !user) return;
+    console.log('addTask called', { newTask, user, loading });
+    
+    if (!newTask.trim() || !user) {
+      console.log('addTask validation failed', { hasTask: !!newTask.trim(), hasUser: !!user });
+      toast.error('Please enter a task');
+      return;
+    }
+    
     setLoading(true);
     
     let reminderTime = null;
     if (newTaskDate && newTaskTime) {
       reminderTime = new Date(`${newTaskDate}T${newTaskTime}`).toISOString();
+      console.log('Setting reminder time:', reminderTime);
     }
     
-    const { data } = await supabase.from('tasks').insert({
-      user_id: user.id,
-      title: newTask.trim(),
-      category: 'study',
-      reminder_time: reminderTime,
-      notification_sent: false,
-      xp_reward: 15,
-    }).select().maybeSingle();
-    
-    setLoading(false);
-    if (data) {
-      setTasks(prev => [data, ...prev]);
-      setNewTask('');
-      setNewTaskDate('');
-      setNewTaskTime('');
-      toast.success('Task added with reminder!');
+    try {
+      console.log('Inserting task:', {
+        user_id: user.id,
+        title: newTask.trim(),
+        category: 'study',
+        reminder_time: reminderTime,
+        notification_sent: false,
+        xp_reward: 15,
+      });
+      
+      const { data, error } = await supabase.from('tasks').insert({
+        user_id: user.id,
+        title: newTask.trim(),
+        category: 'study',
+        reminder_time: reminderTime,
+        notification_sent: false,
+        xp_reward: 15,
+      }).select().maybeSingle();
+      
+      if (error) {
+        console.error('Error adding task:', error);
+        toast.error(`Failed to add task: ${error.message}`);
+        setLoading(false);
+        return;
+      }
+      
+      if (data) {
+        console.log('Task added successfully:', data);
+        setTasks(prev => [data, ...prev]);
+        setNewTask('');
+        setNewTaskDate('');
+        setNewTaskTime('');
+        toast.success('Task added with reminder!');
+      } else {
+        console.log('No data returned from insert');
+        toast.error('Failed to add task - no data returned');
+      }
+    } catch (err) {
+      console.error('Unexpected error adding task:', err);
+      toast.error('Failed to add task');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -260,8 +294,17 @@ Create a structured hourly schedule with specific tasks. Be concise and practica
                     placeholder="e.g. Solve 5 LeetCode problems"
                     className="flex-1"
                   />
-                  <Button onClick={addTask} disabled={loading || !newTask.trim()} className="xp-bar border-0 text-white shrink-0">
-                    <Plus className="w-4 h-4" />
+                  <Button 
+                    onClick={addTask} 
+                    disabled={loading || !newTask.trim()} 
+                    className="xp-bar border-0 text-white shrink-0"
+                    title={loading ? "Adding task..." : !newTask.trim() ? "Enter a task first" : "Add task"}
+                  >
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
                 

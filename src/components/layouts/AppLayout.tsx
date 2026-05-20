@@ -185,8 +185,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center gap-2 px-6 py-5 border-b border-sidebar-border">
-        <div className="w-8 h-8 rounded-lg xp-bar flex items-center justify-center shrink-0">
-          <Zap className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+          <img src="/images/logo.png" alt="PrepVerse Logo" className="w-8 h-8 rounded-lg object-contain" />
         </div>
         <span className="font-bold text-lg gradient-text">PrepVerse</span>
       </div>

@@ -46,15 +46,15 @@ export interface Task {
   id: string;
   user_id: string;
   title: string;
-  description: string | null;
+  description?: string | null;
   category: string;
   is_completed: boolean;
-  due_date: string | null;
-  reminder_time: string | null;
-  notification_sent: boolean;
+  due_date?: string | null;
+  reminder_time?: string | null;
+  notification_sent?: boolean;
   xp_reward: number;
   created_at: string;
-  completed_at: string | null;
+  completed_at?: string | null;
 }
 
 export interface StudySession {

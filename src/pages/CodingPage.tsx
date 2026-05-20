@@ -166,7 +166,8 @@ export default function CodingPage() {
         error.message.includes('relation "public.coding_problems" does not exist') ||
         error.message.includes('Could not find the table') ||
         error.message.includes('coding_problems') ||
-        error.code === 'PGRST116'
+        error.code === 'PGRST116' ||
+        error.code === '42P01'
       )) {
         console.log('coding_problems table not found, creating as task instead');
         toast.info('Using fallback storage method...');
@@ -494,8 +495,19 @@ The "correct" field is the 0-based index of the correct option.`;
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{difficulties.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                   </Select>
-                  <Button onClick={addProblem} disabled={addingProblem} className="xp-bar border-0 text-white">
-                    <Plus className="w-4 h-4 mr-1" /> Add
+                  <Button 
+                    onClick={addProblem} 
+                    disabled={addingProblem} 
+                    className="xp-bar border-0 text-white bg-purple-600 hover:bg-purple-700 font-bold px-6"
+                    style={{ minWidth: '80px', minHeight: '40px' }}
+                  >
+                    {addingProblem ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-1" /> Add Problem
+                      </>
+                    )}
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">

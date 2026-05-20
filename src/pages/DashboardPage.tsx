@@ -108,36 +108,52 @@ export default function DashboardPage() {
     const now = new Date();
     const in30Minutes = new Date(now.getTime() + 30 * 60 * 1000);
     
-    // Get tasks with reminders that are due soon or overdue
-    const { data: reminderTasks } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_completed', false)
-      .not('reminder_time', 'is', null)
-      .lte('reminder_time', in30Minutes.toISOString())
-      .order('reminder_time', { ascending: true });
-    
-    if (reminderTasks && reminderTasks.length > 0) {
-      setTaskReminders(reminderTasks);
+    try {
+      // Get tasks with reminders that are due soon or overdue
+      const { data: reminderTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_completed', false)
+        .not('reminder_time', 'is', null)
+        .lte('reminder_time', in30Minutes.toISOString())
+        .order('reminder_time', { ascending: true });
       
-      // Create notifications for overdue tasks
-      const overdueTasks = reminderTasks.filter(task => 
-        new Date(task.reminder_time!) < now && !task.notification_sent
-      );
-      
-      for (const task of overdueTasks) {
-        await supabase.from('notifications').insert({
-          user_id: user.id,
-          title: 'Task Overdue!',
-          message: `"${task.title}" was due at ${new Date(task.reminder_time!).toLocaleTimeString()}`,
-          type: 'warning',
-          is_read: false,
-        });
+      if (reminderTasks && reminderTasks.length > 0) {
+        setTaskReminders(reminderTasks);
         
-        // Mark notification as sent
-        await supabase.from('tasks').update({ notification_sent: true }).eq('id', task.id);
+        // Create notifications for overdue tasks
+        const overdueTasks = reminderTasks.filter(task => 
+          new Date(task.reminder_time!) < now && !task.notification_sent
+        );
+        
+        for (const task of overdueTasks) {
+          // Check if notification already exists for this task
+          const { data: existingNotif } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('title', 'Task Overdue!')
+            .ilike('message', `%${task.title}%`)
+            .maybeSingle();
+          
+          // Only create notification if it doesn't exist
+          if (!existingNotif) {
+            await supabase.from('notifications').insert({
+              user_id: user.id,
+              title: 'Task Overdue!',
+              message: `"${task.title}" was due at ${new Date(task.reminder_time!).toLocaleTimeString()}`,
+              type: 'warning',
+              is_read: false,
+            });
+            
+            // Mark notification as sent
+            await supabase.from('tasks').update({ notification_sent: true }).eq('id', task.id);
+          }
+        }
       }
+    } catch (error) {
+      console.error('Error checking task reminders:', error);
     }
   };
 

@@ -56,7 +56,12 @@ export default function CodingPage() {
       let { data, error } = await supabase.from('coding_problems').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
       
       // If table doesn't exist, try loading from tasks with coding category
-      if (error && error.message.includes('relation "public.coding_problems" does not exist')) {
+      if (error && (
+        error.message.includes('relation "public.coding_problems" does not exist') ||
+        error.message.includes('Could not find the table') ||
+        error.message.includes('coding_problems') ||
+        error.code === 'PGRST116'
+      )) {
         console.log('coding_problems table not found, loading from tasks instead');
         const tasksResult = await supabase.from('tasks').select('*').eq('user_id', user.id).eq('category', 'coding').order('created_at', { ascending: false }).limit(50);
         
@@ -90,6 +95,34 @@ export default function CodingPage() {
       
       if (error) {
         console.error('Error loading problems:', error);
+        // Try fallback even if we get other errors
+        try {
+          console.log('Attempting fallback to tasks table...');
+          const tasksResult = await supabase.from('tasks').select('*').eq('user_id', user.id).eq('category', 'coding').order('created_at', { ascending: false }).limit(50);
+          
+          if (tasksResult.data) {
+            const codingProblems = (tasksResult.data || []).map(task => {
+              const titleMatch = task.title.match(/^([^:]+):\s*(.+?)\s*\(([^)]+)\)$/);
+              return {
+                id: task.id,
+                user_id: task.user_id,
+                problem_name: titleMatch ? titleMatch[2] : task.title,
+                platform: titleMatch ? titleMatch[1] : 'Unknown',
+                difficulty: titleMatch ? titleMatch[3] : 'Medium',
+                topic: task.description?.replace('Topic: ', '') || 'General',
+                status: task.is_completed ? 'solved' : 'todo' as const,
+                notes: null,
+                solved_at: task.completed_at,
+                created_at: task.created_at,
+              };
+            });
+            setProblems(codingProblems);
+            return;
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback also failed:', fallbackErr);
+        }
+        
         toast.error(`Failed to load problems: ${error.message}`);
         return;
       }
@@ -129,8 +162,15 @@ export default function CodingPage() {
       }).select().maybeSingle();
       
       // If coding_problems table doesn't exist, try creating a task instead
-      if (error && error.message.includes('relation "public.coding_problems" does not exist')) {
+      if (error && (
+        error.message.includes('relation "public.coding_problems" does not exist') ||
+        error.message.includes('Could not find the table') ||
+        error.message.includes('coding_problems') ||
+        error.code === 'PGRST116'
+      )) {
         console.log('coding_problems table not found, creating as task instead');
+        toast.info('Using fallback storage method...');
+        
         const taskResult = await supabase.from('tasks').insert({
           user_id: user.id,
           title: `${newProblem.platform}: ${newProblem.name.trim()} (${newProblem.difficulty})`,
@@ -140,7 +180,10 @@ export default function CodingPage() {
         }).select().maybeSingle();
         
         if (taskResult.error) {
-          throw taskResult.error;
+          console.error('Error creating task:', taskResult.error);
+          toast.error(`Failed to add problem: ${taskResult.error.message}`);
+          setAddingProblem(false);
+          return;
         }
         
         // Convert task to coding problem format for display
@@ -160,7 +203,7 @@ export default function CodingPage() {
           
           setProblems(prev => [codingProblem, ...prev]);
           setNewProblem(p => ({ ...p, name: '' }));
-          toast.success('Problem added successfully! (Note: Please run the database setup script to create the proper coding_problems table)');
+          toast.success('Problem added successfully! (Stored as task - consider creating coding_problems table)');
           setAddingProblem(false);
           return;
         }
@@ -182,7 +225,41 @@ export default function CodingPage() {
       }
     } catch (err: any) {
       console.error('Unexpected error adding problem:', err);
-      toast.error(`Failed to add problem: ${err.message || 'Unknown error'}`);
+      
+      // Try the fallback approach if we get any error
+      try {
+        console.log('Attempting fallback to tasks table...');
+        const taskResult = await supabase.from('tasks').insert({
+          user_id: user.id,
+          title: `${newProblem.platform}: ${newProblem.name.trim()} (${newProblem.difficulty})`,
+          description: `Topic: ${newProblem.topic}`,
+          category: 'coding',
+          xp_reward: newProblem.difficulty === 'Easy' ? 15 : newProblem.difficulty === 'Medium' ? 25 : 35,
+        }).select().maybeSingle();
+        
+        if (taskResult.error) {
+          toast.error(`Failed to add problem: ${taskResult.error.message}`);
+        } else if (taskResult.data) {
+          const codingProblem = {
+            id: taskResult.data.id,
+            user_id: taskResult.data.user_id,
+            problem_name: newProblem.name.trim(),
+            platform: newProblem.platform,
+            difficulty: newProblem.difficulty,
+            topic: newProblem.topic,
+            status: 'todo' as const,
+            notes: null,
+            solved_at: null,
+            created_at: taskResult.data.created_at,
+          };
+          
+          setProblems(prev => [codingProblem, ...prev]);
+          setNewProblem(p => ({ ...p, name: '' }));
+          toast.success('Problem added successfully using fallback method!');
+        }
+      } catch (fallbackErr: any) {
+        toast.error(`Failed to add problem: ${fallbackErr.message || 'Unknown error'}`);
+      }
     } finally {
       setAddingProblem(false);
     }

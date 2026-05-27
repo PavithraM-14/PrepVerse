@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { PlacementPersona, RoadmapData } from '@/types/types';
 import {
   Target, Calendar, CheckCircle, Clock, Sparkles,
@@ -337,183 +338,209 @@ export default function RoadmapPage() {
               Roadmap History
               {roadmapHistory.length > 0 && (
                 <Badge variant="secondary" className="ml-2">
-                  {roadmapHistory.length} previous roadmap{roadmapHistory.length !== 1 ? 's' : ''}
+                  {roadmapHistory.length} roadmap{roadmapHistory.length !== 1 ? 's' : ''}
                 </Badge>
               )}
             </CardTitle>
           </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {roadmapHistory.map((historicalPersona, index) => (
-                  <div key={historicalPersona.id} className="border border-border/30 rounded-xl p-4 bg-accent/20">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="text-xs">
-                          Version {roadmapHistory.length - index}
-                        </Badge>
-                        <div className="text-sm">
-                          <span className="font-medium">{historicalPersona.dream_company}</span>
-                          <span className="text-muted-foreground mx-2">•</span>
-                          <span className="text-muted-foreground">{historicalPersona.preferred_role}</span>
+          <CardContent>
+            {roadmapHistory.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <History className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No previous roadmaps yet</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {roadmapHistory.map((historicalPersona, index) => {
+                  const totalWeeks = historicalPersona.roadmap?.phases?.length || 0;
+                  const currentWeek = Math.min(
+                    Math.floor((Date.now() - new Date(historicalPersona.created_at).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
+                    totalWeeks
+                  );
+                  const completionPercentage = totalWeeks > 0 ? Math.round((currentWeek / totalWeeks) * 100) : 0;
+                  
+                  return (
+                    <div key={historicalPersona.id} className="border border-border/30 rounded-xl p-4 bg-accent/20">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-xs font-medium">
+                            #{roadmapHistory.length - index}
+                          </Badge>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm">{historicalPersona.dream_company}</span>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-sm text-muted-foreground">{historicalPersona.preferred_role}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Calendar className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                Created {new Date(historicalPersona.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              if (selectedHistoryRoadmap?.phases === historicalPersona.roadmap?.phases) {
+                                setSelectedHistoryRoadmap(null);
+                              } else {
+                                setSelectedHistoryRoadmap(historicalPersona.roadmap);
+                              }
+                            }}
+                            className="h-8 px-3 text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            {selectedHistoryRoadmap?.phases === historicalPersona.roadmap?.phases ? 'Hide' : 'View'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('Delete this roadmap permanently?')) {
+                                deleteHistoricalRoadmap(historicalPersona.id);
+                              }
+                            }}
+                            className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(historicalPersona.created_at).toLocaleDateString()}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            if (selectedHistoryRoadmap?.phases === historicalPersona.roadmap?.phases) {
-                              setSelectedHistoryRoadmap(null);
-                            } else {
-                              setSelectedHistoryRoadmap(historicalPersona.roadmap);
-                            }
-                          }}
-                          className="h-8 px-2"
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          {selectedHistoryRoadmap?.phases === historicalPersona.roadmap?.phases ? 'Hide' : 'View'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Are you sure you want to delete this roadmap? This action cannot be undone.')) {
-                              deleteHistoricalRoadmap(historicalPersona.id);
-                            }
-                          }}
-                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
 
-                    {/* Quick Summary */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                      <div className="text-center p-2 bg-accent/30 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Skill Level</p>
-                        <p className="text-xs font-medium">{historicalPersona.current_skill_level}</p>
+                      {/* Progress and Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div className="text-center p-3 bg-accent/30 rounded-lg">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <TrendingUp className="w-3 h-3 text-primary" />
+                            <span className="text-xs text-muted-foreground">Progress</span>
+                          </div>
+                          <div className="text-lg font-bold text-primary">{completionPercentage}%</div>
+                          <div className="text-xs text-muted-foreground">Week {currentWeek}/{totalWeeks}</div>
+                        </div>
+                        <div className="text-center p-3 bg-accent/30 rounded-lg">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <Brain className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Skill Level</span>
+                          </div>
+                          <div className="text-sm font-medium">{historicalPersona.current_skill_level}</div>
+                        </div>
+                        <div className="text-center p-3 bg-accent/30 rounded-lg">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <Clock className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Timeline</span>
+                          </div>
+                          <div className="text-sm font-medium">{historicalPersona.placement_timeline}</div>
+                        </div>
+                        <div className="text-center p-3 bg-accent/30 rounded-lg">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <Target className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Confidence</span>
+                          </div>
+                          <div className="text-sm font-medium">{historicalPersona.confidence_level}/10</div>
+                        </div>
                       </div>
-                      <div className="text-center p-2 bg-accent/30 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Timeline</p>
-                        <p className="text-xs font-medium">{historicalPersona.placement_timeline}</p>
-                      </div>
-                      <div className="text-center p-2 bg-accent/30 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Confidence</p>
-                        <p className="text-xs font-medium">{historicalPersona.confidence_level}/10</p>
-                      </div>
-                      <div className="text-center p-2 bg-accent/30 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Phases</p>
-                        <p className="text-xs font-medium">{historicalPersona.roadmap?.phases?.length || 0}</p>
-                      </div>
-                    </div>
 
-                    {/* Expanded Historical Roadmap View */}
-                    {selectedHistoryRoadmap?.phases === historicalPersona.roadmap?.phases && historicalPersona.roadmap && (
-                      <div className="mt-4 border-t border-border/30 pt-4">
-                        <h4 className="font-semibold mb-3 text-sm">Historical Roadmap Details</h4>
-                        
-                        {/* Historical Phases Table */}
-                        {historicalPersona.roadmap.phases && historicalPersona.roadmap.phases.length > 0 && (
-                          <div className="mb-4">
+                      {/* Progress Bar */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-muted-foreground">Roadmap Progress</span>
+                          <span className="text-xs font-medium">{completionPercentage}% Complete</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full xp-bar rounded-full transition-all duration-500"
+                            style={{ width: `${completionPercentage}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Expanded View */}
+                      {selectedHistoryRoadmap?.phases === historicalPersona.roadmap?.phases && historicalPersona.roadmap && (
+                        <div className="border-t border-border/30 pt-4">
+                          <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                            <Target className="w-4 h-4 text-primary" />
+                            Roadmap Details
+                          </h4>
+                          
+                          {historicalPersona.roadmap.phases && historicalPersona.roadmap.phases.length > 0 && (
                             <div className="border border-border/60 rounded-lg overflow-hidden">
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                   <thead className="bg-accent/50">
                                     <tr>
-                                      <th className="text-left p-2 text-xs font-semibold text-muted-foreground">Week</th>
-                                      <th className="text-left p-2 text-xs font-semibold text-muted-foreground">Phase</th>
-                                      <th className="text-left p-2 text-xs font-semibold text-muted-foreground">Focus</th>
-                                      <th className="text-left p-2 text-xs font-semibold text-muted-foreground">Tasks</th>
+                                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Week</th>
+                                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Phase</th>
+                                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Focus</th>
+                                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">Status</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {historicalPersona.roadmap.phases.map((phase, phaseIndex) => (
-                                      <tr key={phaseIndex} className="border-b border-border/20">
-                                        <td className="p-2">
-                                          <Badge variant="outline" className="text-xs">
-                                            Week {phase.week}
-                                          </Badge>
-                                        </td>
-                                        <td className="p-2">
-                                          <p className="text-xs font-medium">{phase.title}</p>
-                                        </td>
-                                        <td className="p-2">
-                                          <p className="text-xs text-muted-foreground">{phase.focus}</p>
-                                        </td>
-                                        <td className="p-2">
-                                          <div className="space-y-1">
-                                            {phase.tasks.slice(0, 2).map((task, taskIndex) => (
-                                              <div key={taskIndex} className="flex items-start gap-1">
-                                                <CheckCircle className="w-2 h-2 text-success mt-1 shrink-0" />
-                                                <p className="text-xs text-muted-foreground">{task}</p>
-                                              </div>
-                                            ))}
-                                            {phase.tasks.length > 2 && (
-                                              <p className="text-xs text-muted-foreground italic">
-                                                +{phase.tasks.length - 2} more...
-                                              </p>
-                                            )}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
+                                    {historicalPersona.roadmap.phases.map((phase, phaseIndex) => {
+                                      const isCompleted = phaseIndex < currentWeek;
+                                      const isCurrent = phaseIndex === currentWeek - 1;
+                                      
+                                      return (
+                                        <tr key={phaseIndex} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
+                                          <td className="p-3">
+                                            <Badge 
+                                              className={cn(
+                                                "text-xs",
+                                                isCompleted ? "xp-bar border-0 text-white" : 
+                                                isCurrent ? "bg-warning/10 text-warning border-warning/30" :
+                                                "bg-muted text-muted-foreground"
+                                              )}
+                                            >
+                                              Week {phase.week}
+                                            </Badge>
+                                          </td>
+                                          <td className="p-3">
+                                            <p className="text-sm font-medium">{phase.title}</p>
+                                          </td>
+                                          <td className="p-3">
+                                            <p className="text-sm text-muted-foreground">{phase.focus}</p>
+                                          </td>
+                                          <td className="p-3">
+                                            <div className="flex items-center gap-2">
+                                              {isCompleted ? (
+                                                <>
+                                                  <CheckCircle className="w-4 h-4 text-success" />
+                                                  <span className="text-xs text-success font-medium">Completed</span>
+                                                </>
+                                              ) : isCurrent ? (
+                                                <>
+                                                  <Clock className="w-4 h-4 text-warning" />
+                                                  <span className="text-xs text-warning font-medium">In Progress</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                                                  <span className="text-xs text-muted-foreground">Pending</span>
+                                                </>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>
                             </div>
-                          </div>
-                        )}
-
-                        {/* Historical Weekly Goals */}
-                        {historicalPersona.roadmap.weekly_goals && historicalPersona.roadmap.weekly_goals.length > 0 && (
-                          <div className="mb-4">
-                            <h5 className="font-medium mb-2 text-xs">Weekly Goals</h5>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {historicalPersona.roadmap.weekly_goals.slice(0, 4).map((goal, goalIndex) => (
-                                <div key={goalIndex} className="flex items-center gap-2 p-2 rounded bg-accent/30 text-xs">
-                                  <Badge variant="outline" className="text-xs w-12 justify-center shrink-0">
-                                    W{goalIndex + 1}
-                                  </Badge>
-                                  <span className="text-muted-foreground">{goal}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Historical Recommendations */}
-                        {historicalPersona.roadmap.recommendations && historicalPersona.roadmap.recommendations.length > 0 && (
-                          <div>
-                            <h5 className="font-medium mb-2 text-xs">Key Recommendations</h5>
-                            <div className="space-y-2">
-                              {historicalPersona.roadmap.recommendations.slice(0, 3).map((rec, recIndex) => (
-                                <div key={recIndex} className="flex items-start gap-2 p-2 rounded bg-gradient-to-r from-primary/5 to-neon-purple/5 text-xs">
-                                  <Sparkles className="w-3 h-3 text-primary mt-0.5 shrink-0" />
-                                  <p className="text-muted-foreground">{rec}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              
-              {loadingHistory && (
-                <div className="text-center py-4">
-                  <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2 text-primary" />
-                  <p className="text-sm text-muted-foreground">Loading history...</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Back to Dashboard */}
         <div className="text-center">

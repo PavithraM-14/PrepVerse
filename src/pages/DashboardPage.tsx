@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/db/supabase';
 import type { UserProgress, Task, PlacementPersona, Notification } from '@/types/types';
 import { AppLayout } from '@/components/layouts/AppLayout';
+import { MentorDashboardWidget } from '@/components/mentor/MentorDashboardWidget';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +17,7 @@ import {
   Flame, Trophy, Target, CheckCircle, Brain, Zap,
   BookOpen, Code2, FileText, MessageSquare, ArrowRight,
   TrendingUp, Bell, ChevronRight, Star, Users, History,
-  Clock, AlertTriangle, Calendar,
+  Clock, AlertTriangle, Calendar, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -197,6 +198,7 @@ export default function DashboardPage() {
     { icon: FileText, label: 'Analyze Resume', path: '/resume', color: 'text-neon-purple', bg: 'bg-neon-purple/10' },
     { icon: MessageSquare, label: 'Mock Interview', path: '/interview', color: 'text-success', bg: 'bg-success/10' },
     { icon: Code2, label: 'Practice Coding', path: '/coding', color: 'text-warning', bg: 'bg-warning/10' },
+    { icon: Sparkles, label: 'AI Code Review', path: '/code-review', color: 'text-primary', bg: 'bg-primary/10' },
     { icon: BookOpen, label: 'Study Plan', path: '/planner', color: 'text-info', bg: 'bg-info/10' },
   ];
 
@@ -280,7 +282,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions + Tasks */}
+        {/* Quick Actions + AI Mentor */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Quick Actions */}
           <Card className="glass border-border/40 h-full flex flex-col">
@@ -303,19 +305,25 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Today's Tasks */}
-          <Card className="glass border-border/40 h-full flex flex-col">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-success" /> Daily Goals
-                </CardTitle>
-                <Badge variant="secondary" className="bg-primary/10 text-primary border-0">{completedTasks}/{tasks.length}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto min-h-0">
-              {loading ? (
-                <div className="space-y-3">
+          {/* AI Mentor Widget */}
+          <div className="h-full">
+            <MentorDashboardWidget />
+          </div>
+        </div>
+
+        {/* Daily Goals */}
+        <Card className="glass border-border/40">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-success" /> Daily Goals
+              </CardTitle>
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-0">{completedTasks}/{tasks.length}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="overflow-y-auto">
+            {loading ? (
+              <div className="space-y-3">
                   {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
               ) : tasks.length === 0 ? (
@@ -349,7 +357,6 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
-        </div>
 
         {/* AI Daily Tip */}
         <Card className="glass border-border/40 stats-gradient-1">

@@ -141,11 +141,40 @@ export interface InterviewMessage {
 
 export interface InterviewFeedback {
   overall_score: number;
-  confidence_score: number;
-  communication_score: number;
-  technical_score: number;
+  confidence_score?: number;
+  communication_score?: number;
+  technical_score?: number;
+  voice_analysis?: {
+    pace_score: number;
+    clarity_score: number;
+    volume_score: number;
+    confidence_score: number;
+  };
+  behavioral_analysis?: {
+    eye_contact_score: number;
+    professionalism_score: number;
+    response_timing_score: number;
+    composure_score: number;
+  };
+  coding_analysis?: {
+    problem_solving_score: number;
+    code_quality_score: number;
+    algorithm_efficiency_score: number;
+    completion_rate: number;
+  };
   strengths: string[];
   improvements: string[];
+  voice_feedback?: string[];
+  behavioral_feedback?: string[];
+  coding_feedback?: string[];
+  interview_readiness?: number;
+  interview_duration?: number;
+  session_recording?: Blob;
+  conversation_transcript?: InterviewMessage[];
+  behavioral_metrics?: any;
+  interviewer_info?: any;
+  personalized_roadmap?: string[];
+  next_steps?: string[];
   summary: string;
 }
 
@@ -207,3 +236,157 @@ export type Mood = 'motivated' | 'stressed' | 'tired' | 'productive';
 export type InterviewType = 'hr' | 'technical' | 'behavioral' | 'coding';
 export type AnalysisMode = 'roast' | 'hr' | 'mentor';
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
+
+// AI Mentor Types
+export type MentorMode = 'career' | 'coding' | 'interview' | 'productivity' | 'motivation';
+
+export interface MentorMessage {
+  id: string;
+  role: 'user' | 'mentor';
+  content: string;
+  timestamp: string;
+  mode?: MentorMode;
+  suggestions?: string[];
+}
+
+export interface MentorSession {
+  id: string;
+  user_id: string;
+  messages: MentorMessage[];
+  mode: MentorMode;
+  context: MentorContext;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MentorContext {
+  user_profile?: {
+    dream_company?: string;
+    skill_level?: string;
+    weak_subjects?: string[];
+    current_goals?: string[];
+  };
+  recent_activity?: {
+    coding_sessions?: number;
+    interview_attempts?: number;
+    study_streak?: number;
+    last_resume_score?: number;
+  };
+  conversation_history?: {
+    recent_topics?: string[];
+    preferred_mode?: MentorMode;
+    interaction_count?: number;
+  };
+}
+
+export interface MentorRecommendation {
+  id: string;
+  user_id: string;
+  type: 'daily_tip' | 'study_plan' | 'coding_challenge' | 'interview_prep' | 'motivation';
+  title: string;
+  content: string;
+  action_items: string[];
+  priority: 'low' | 'medium' | 'high';
+  expires_at?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface MentorAnalytics {
+  user_id: string;
+  total_conversations: number;
+  favorite_mode: MentorMode;
+  topics_discussed: string[];
+  recommendations_followed: number;
+  last_interaction: string;
+  engagement_score: number;
+}
+
+// AI Code Review Types
+export type ProgrammingLanguage = 'java' | 'python' | 'cpp' | 'javascript' | 'typescript' | 'c' | 'csharp';
+
+export type CodeReviewMode = 'debug' | 'explain' | 'optimize' | 'interview' | 'complexity';
+
+export interface CodeReviewRequest {
+  code: string;
+  language: ProgrammingLanguage;
+  mode: CodeReviewMode;
+  filename?: string;
+}
+
+export interface CodeReviewResult {
+  id: string;
+  user_id: string;
+  original_code: string;
+  language: ProgrammingLanguage;
+  mode: CodeReviewMode;
+  filename?: string;
+  
+  // AI Analysis Results
+  corrected_code?: string;
+  errors_found: CodeError[];
+  optimizations: CodeOptimization[];
+  explanations: CodeExplanation[];
+  interview_feedback?: InterviewFeedback;
+  complexity_analysis?: ComplexityAnalysis;
+  
+  // Scoring
+  code_quality_score: number;
+  readability_score: number;
+  efficiency_score: number;
+  overall_score: number;
+  
+  // Metadata
+  created_at: string;
+  analysis_time_ms: number;
+  xp_awarded: number;
+}
+
+export interface CodeError {
+  line: number;
+  column?: number;
+  type: 'syntax' | 'logic' | 'runtime' | 'style';
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  suggestion?: string;
+  code_snippet?: string;
+}
+
+export interface CodeOptimization {
+  type: 'performance' | 'memory' | 'readability' | 'best_practice';
+  title: string;
+  description: string;
+  before_code?: string;
+  after_code?: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
+export interface CodeExplanation {
+  section: string;
+  line_start: number;
+  line_end: number;
+  explanation: string;
+  concepts: string[];
+}
+
+export interface ComplexityAnalysis {
+  time_complexity: string;
+  space_complexity: string;
+  time_explanation: string;
+  space_explanation: string;
+  can_optimize: boolean;
+  optimization_suggestions?: string[];
+}
+
+export interface CodingAnalytics {
+  user_id: string;
+  total_reviews: number;
+  avg_code_quality: number;
+  languages_used: ProgrammingLanguage[];
+  favorite_language: ProgrammingLanguage;
+  coding_streak: number;
+  last_review_date: string;
+  total_xp_earned: number;
+  errors_fixed: number;
+  optimizations_applied: number;
+}

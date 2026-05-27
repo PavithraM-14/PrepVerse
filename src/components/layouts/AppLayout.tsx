@@ -7,154 +7,31 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Streamdown } from 'streamdown';
-import { streamGemini, type GeminiMessage } from '@/lib/sse';
+import { AIMentor } from '@/components/mentor/AIMentor';
 import {
   LayoutDashboard, FileText, MessageSquare, BookOpen,
-  Code2, Trophy, User, Menu, X, LogOut, Bell, Send,
-  Bot, ChevronDown, Moon, Sun, Target,
+  Code2, Trophy, User, Menu, LogOut, Bell,
+  ChevronDown, Moon, Sun, Target, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const navItems = [
+const navItems: Array<{
+  icon: React.FC<{ className?: string }>;
+  label: string;
+  path: string;
+  badge?: string;
+}> = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Target, label: 'My Roadmap', path: '/roadmap' },
   { icon: FileText, label: 'Resume AI', path: '/resume' },
   { icon: MessageSquare, label: 'Interview AI', path: '/interview' },
   { icon: BookOpen, label: 'Study Planner', path: '/planner' },
   { icon: Code2, label: 'Coding Tracker', path: '/coding' },
+  { icon: Sparkles, label: 'AI Code Reviewer', path: '/code-review', badge: 'NEW' },
   { icon: Trophy, label: 'Leaderboard', path: '/leaderboard' },
   { icon: User, label: 'Profile', path: '/profile' },
 ];
-
-interface ChatMessage {
-  role: 'user' | 'model';
-  content: string;
-}
-
-function AIChatbot() {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', content: '👋 Hi! I\'m Vera, your AI placement assistant. Ask me anything about interviews, coding, resumes, or study strategies!' }
-  ]);
-  const [input, setInput] = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const [streamText, setStreamText] = useState('');
-  const abortRef = useRef<AbortController | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamText]);
-
-  const send = async () => {
-    if (!input.trim() || streaming) return;
-    const userMsg = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-    setStreaming(true);
-    setStreamText('');
-
-    const history: GeminiMessage[] = messages.slice(-6).map(m => ({
-      role: m.role,
-      parts: [{ text: m.content }],
-    }));
-    history.push({ role: 'user', parts: [{ text: userMsg }] });
-
-    abortRef.current = new AbortController();
-    let full = '';
-    await streamGemini(
-      history,
-      (chunk) => { full += chunk; setStreamText(full); },
-      () => {
-        setStreaming(false);
-        setMessages(prev => [...prev, { role: 'model', content: full }]);
-        setStreamText('');
-      },
-      (err) => {
-        setStreaming(false);
-        toast.error('AI error: ' + err.message);
-      },
-      'You are Vera, a friendly and knowledgeable AI placement assistant for PrepVerse. Help students with placement preparation, coding interviews, resume building, and career advice. Be concise and encouraging.',
-      abortRef.current.signal
-    );
-  };
-
-  return (
-    <>
-      {/* Floating button */}
-      <button
-        onClick={() => setOpen(!open)}
-        className={cn(
-          'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full xp-bar shadow-lg neon-glow flex items-center justify-center transition-transform',
-          open && 'scale-95'
-        )}
-      >
-        {open ? <X className="w-6 h-6 text-white" /> : <Bot className="w-6 h-6 text-white" />}
-      </button>
-
-      {/* Chat panel */}
-      {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 md:w-96 rounded-2xl glass-strong border border-border/60 shadow-hover flex flex-col overflow-hidden"
-          style={{ maxHeight: '70vh' }}>
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 xp-bar">
-            <Bot className="w-5 h-5 text-white" />
-            <div>
-              <p className="font-semibold text-sm text-white">Vera — AI Assistant</p>
-              <p className="text-xs text-white/70">Placement & Career Coach</p>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-            {messages.map((m, i) => (
-              <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                <div className={cn(
-                  'max-w-[85%] rounded-2xl px-3 py-2 text-sm',
-                  m.role === 'user'
-                    ? 'xp-bar text-white rounded-tr-sm'
-                    : 'bg-secondary text-secondary-foreground rounded-tl-sm'
-                )}>
-                  {m.role === 'model' ? (
-                    <Streamdown parseIncompleteMarkdown isAnimating={false} className="text-sm [&>*]:m-0">
-                      {m.content}
-                    </Streamdown>
-                  ) : m.content}
-                </div>
-              </div>
-            ))}
-            {streaming && streamText && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-3 py-2 text-sm bg-secondary text-secondary-foreground">
-                  <Streamdown parseIncompleteMarkdown isAnimating={streaming} className="text-sm [&>*]:m-0">
-                    {streamText}
-                  </Streamdown>
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Input */}
-          <div className="flex items-center gap-2 p-3 border-t border-border/50">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
-              placeholder="Ask Vera anything..."
-              className="flex-1 bg-background/50 border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-0"
-            />
-            <Button size="icon" onClick={send} disabled={streaming || !input.trim()} className="xp-bar border-0 text-white h-9 w-9 shrink-0">
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -248,6 +125,11 @@ export function AppLayout({ children }: AppLayoutProps) {
             >
               <item.icon className="w-4 h-4 shrink-0" />
               <span>{item.label}</span>
+              {item.badge && !active && (
+                <Badge className="ml-auto bg-primary text-white border-0 text-xs py-0 px-2">
+                  {item.badge}
+                </Badge>
+              )}
               {active && <Badge className="ml-auto bg-white/20 text-white border-0 text-xs py-0">●</Badge>}
             </Link>
           );
@@ -275,12 +157,12 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex min-h-screen w-full bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-sidebar border-r border-sidebar-border">
+      <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-sidebar border-r border-sidebar-border fixed left-0 top-0 h-screen z-30">
         <SidebarContent />
       </aside>
 
       {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col lg:ml-64">
         {/* Top bar */}
         <header className="h-14 glass border-b border-border/50 flex items-center px-4 md:px-6 gap-3 sticky top-0 z-40">
           {/* Mobile hamburger */}
@@ -329,8 +211,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         </main>
       </div>
 
-      {/* AI Chatbot */}
-      <AIChatbot />
+      {/* AI Mentor Assistant */}
+      <AIMentor />
     </div>
   );
 }

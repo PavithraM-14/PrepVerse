@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PrepVerse Connection Test</title>
+</head>
+<body>
+    <h1>PrepVerse Supabase Connection Test</h1>
+    <div id="results"></div>
+    
+    <script type="module">
+        // Test connection to Supabase
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
+        
+        const supabaseUrl = 'https://frztnflswxgqadmcrmum.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZyenRuZmxzd3hncWFkbWNybXVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNjc1MTYsImV4cCI6MjA5NDc0MzUxNn0.zj5IrajuXx0E75wLTeNA74R3GYf1BmAPzAWYnkF69I4';
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        async function testConnection() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>🔍 Testing connection...</p>';
+            
+            try {
+                // Test 1: Basic connection
+                const { data: authData, error: authError } = await supabase.auth.getSession();
+                if (authError) {
+                    results.innerHTML += '<p>❌ Auth Error: ' + authError.message + '</p>';
+                } else {
+                    results.innerHTML += '<p>✅ Supabase connection successful!</p>';
+                }
+                
+                // Test 2: Check if tasks table exists
+                const { data: tasksData, error: tasksError } = await supabase
+                    .from('tasks')
+                    .select('*')
+                    .limit(1);
+                    
+                if (tasksError) {
+                    if (tasksError.message.includes('does not exist')) {
+                        results.innerHTML += '<p>⚠️ Tasks table does not exist - run database setup</p>';
+                    } else {
+                        results.innerHTML += '<p>❌ Tasks table error: ' + tasksError.message + '</p>';
+                    }
+                } else {
+                    results.innerHTML += '<p>✅ Tasks table accessible!</p>';
+                }
+                
+                // Test 3: Check coding_problems table
+                const { data: codingData, error: codingError } = await supabase
+                    .from('coding_problems')
+                    .select('*')
+                    .limit(1);
+                    
+                if (codingError) {
+                    if (codingError.message.includes('does not exist')) {
+                        results.innerHTML += '<p>⚠️ Coding problems table does not exist</p>';
+                    } else {
+                        results.innerHTML += '<p>❌ Coding problems error: ' + codingError.message + '</p>';
+                    }
+                } else {
+                    results.innerHTML += '<p>✅ Coding problems table accessible!</p>';
+                }
+                
+                results.innerHTML += '<p>🎯 Connection test complete!</p>';
+                
+            } catch (err) {
+                results.innerHTML += '<p>❌ Test failed: ' + err.message + '</p>';
+            }
+        }
+        
+        // Run test when page loads
+        testConnection();
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import { supabase } from '@/db/supabase';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,8 @@ export default function PlannerPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [hours, setHours] = useState('4');
   const [topics, setTopics] = useState('');
+  const [startTime, setStartTime] = useState('16:00'); // Default to 4:00 PM
+  const [sessionLength, setSessionLength] = useState('30'); // Default to 30 min sessions
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -221,12 +224,48 @@ export default function PlannerPage() {
     abortRef.current = new AbortController();
 
     const moodData = moods.find(m => m.key === selectedMood)!;
-    const prompt = `Create a smart daily study plan for a placement student with:
+    
+    // Convert start time to readable format
+    const [startHour, startMinute] = startTime.split(':');
+    const startHour12 = parseInt(startHour);
+    const startTimeFormatted = `${startHour12 > 12 ? startHour12 - 12 : startHour12 === 0 ? 12 : startHour12}:${startMinute} ${startHour12 >= 12 ? 'PM' : 'AM'}`;
+    
+    // Process topics - handle both comma-separated and line-separated formats
+    const processedTopics = topics 
+      ? topics.split(/[,\n]/).map(t => t.trim()).filter(t => t.length > 0)
+      : ['DSA', 'aptitude', 'system design'];
+    
+    const topicsText = processedTopics.join(', ');
+    
+    const prompt = `Create a realistic study schedule for a placement student with:
 - Mood: ${selectedMood} (${moodData.message})
-- Available study hours: ${hours} hours
-- Topics to cover: ${topics || 'DSA, aptitude, system design'}
+- Total study time: ${hours} hours
+- Start time: ${startTimeFormatted}
+- Session length: ${sessionLength} minutes each
+- Topics to cover: ${topicsText}
 
-Create a structured hourly schedule with specific tasks. Be concise and practical. Format as a clear schedule.`;
+CRITICAL REQUIREMENT: You MUST create a study plan that covers ONLY these specific topics: ${topicsText}
+Do NOT include any other subjects or topics not listed above.
+
+IMPORTANT: Create a student-friendly schedule with:
+- ${sessionLength}-minute focused study sessions
+- 15-20 minute breaks between sessions for rest and absorption
+- Longer 30-45 minute breaks after every 2-3 sessions for meals/refresh
+- Realistic pacing that allows proper learning and retention
+- End the day at a reasonable time
+- Each study session must focus on one of the specified topics: ${topicsText}
+
+Format as a detailed timeline starting from ${startTimeFormatted}. Include both study sessions and break times.
+
+Example format:
+${startTimeFormatted} - [End Time]: Study Session 1 - [Topic from: ${topicsText}]
+• Specific learning objectives for this topic
+• Practice problems to solve
+
+[Break Time] - [Resume Time]: Break (15 min rest)
+• Stretch, hydrate, quick snack
+
+Make the schedule practical for effective learning, not just cramming. Remember: ONLY use the topics specified: ${topicsText}`;
 
     const contents: GeminiMessage[] = [{ role: 'user', parts: [{ text: prompt }] }];
     let full = '';
@@ -241,12 +280,12 @@ Create a structured hourly schedule with specific tasks. Be concise and practica
             user_id: user.id,
             mood: selectedMood,
             hours_studied: parseFloat(hours) || 0,
-            topics: topics ? topics.split(',').map(t => t.trim()) : [],
+            topics: processedTopics,
           });
         }
       },
       (err) => { setAiLoading(false); toast.error(err.message); },
-      'You are a smart study planner AI. Create practical, motivating study schedules.',
+      'You are a smart study planner AI. Create practical, motivating study schedules that strictly follow the user\'s specified topics and requirements. Never deviate from the topics provided by the user.',
       abortRef.current.signal
     );
   };
@@ -268,54 +307,83 @@ Create a structured hourly schedule with specific tasks. Be concise and practica
         </div>
 
         {/* Mood selector */}
-        <Card className="border-border/60">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Brain className="w-4 h-4 text-primary" /> How are you feeling today?
+        <Card className="border-border/60 bg-gradient-to-br from-purple-500/5 via-background to-pink-500/5 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-purple to-primary flex items-center justify-center shadow-lg">
+                <Brain className="w-4 h-4 text-white" />
+              </div>
+              How are you feeling today?
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Your mood helps us create the perfect study plan for you ✨
+            </p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {moods.map((m) => (
                 <button
                   key={m.key}
                   onClick={() => setSelectedMood(m.key)}
                   className={cn(
-                    'rounded-2xl p-4 border-2 text-center transition-all card-hover',
-                    selectedMood === m.key ? `${m.border} ${m.bg}` : 'border-border hover:border-primary/30'
+                    'rounded-2xl p-6 border-2 text-center transition-all duration-300 card-hover group relative overflow-hidden',
+                    selectedMood === m.key 
+                      ? `${m.border} ${m.bg} shadow-xl scale-105 ring-2 ring-primary/20` 
+                      : 'border-border/50 hover:border-primary/40 hover:shadow-lg hover:scale-102 bg-gradient-to-br from-background/80 to-accent/20'
                   )}
                 >
-                  <m.icon className={`w-7 h-7 mx-auto mb-2 ${m.color}`} />
-                  <p className="text-sm font-semibold">{m.label}</p>
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <m.icon className={`w-8 h-8 mx-auto mb-3 transition-all duration-300 group-hover:scale-110 relative z-10 ${m.color}`} />
+                  <p className="text-sm font-semibold mb-1 relative z-10">{m.label}</p>
+                  <p className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-300 relative z-10">
+                    {m.key === 'motivated' ? 'Ready to conquer!' : 
+                     m.key === 'productive' ? 'Steady progress' :
+                     m.key === 'stressed' ? 'Take it easy' : 'Light & gentle'}
+                  </p>
                 </button>
               ))}
             </div>
 
             {selectedMood && (
               <div className={cn(
-                'mt-4 p-3 rounded-xl border',
+                'mt-6 p-4 rounded-2xl border-2 bg-gradient-to-r transition-all duration-500 animate-in slide-in-from-bottom-2',
                 moods.find(m => m.key === selectedMood)?.border,
                 moods.find(m => m.key === selectedMood)?.bg
               )}>
-                <p className={cn('text-sm font-medium', moods.find(m => m.key === selectedMood)?.color)}>
-                  {moods.find(m => m.key === selectedMood)?.message}
-                </p>
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const MoodIcon = moods.find(m => m.key === selectedMood)?.icon || Brain;
+                    return <MoodIcon className={cn("w-5 h-5", moods.find(m => m.key === selectedMood)?.color)} />;
+                  })()}
+                  <p className={cn('text-sm font-medium', moods.find(m => m.key === selectedMood)?.color)}>
+                    {moods.find(m => m.key === selectedMood)?.message}
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* AI Plan generator */}
-        <Card className="border-border/60">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> Generate AI Study Plan
+        <Card className="border-border/60 bg-gradient-to-br from-background to-accent/20">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-neon-purple flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              Generate AI Study Plan
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Create a personalized study schedule based on your mood and preferences
+            </p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Study Hours Available</Label>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  Study Hours Available
+                </Label>
                 <Input
                   type="number"
                   min="1"
@@ -323,33 +391,195 @@ Create a structured hourly schedule with specific tasks. Be concise and practica
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
                   placeholder="e.g. 4"
+                  className="px-4 py-3 rounded-xl border-border hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                 />
+                <p className="text-xs text-muted-foreground">Total hours to study today</p>
               </div>
-              <div className="space-y-2">
-                <Label>Topics to Cover</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  Start Time
+                </Label>
                 <Input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  placeholder="e.g. 16:00"
+                  className="px-4 py-3 rounded-xl border-border hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
+                />
+                <p className="text-xs text-muted-foreground">When do you want to begin studying?</p>
+              </div>
+              <div className="space-y-3">
+                <Label className="text-xs font-medium flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  Session Length
+                </Label>
+                <select 
+                  value={sessionLength} 
+                  onChange={(e) => setSessionLength(e.target.value)}
+                  className="w-full px-4 py-3 text-sm border border-border rounded-xl bg-background hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 cursor-pointer"
+                >
+                  <option value="30">⚡ 30 min (Quick Focus)</option>
+                  <option value="45">🎯 45 min (Focused)</option>
+                  <option value="60">📚 1 hour (Standard)</option>
+                  <option value="90">🧠 1.5 hours (Deep Dive)</option>
+                </select>
+                <p className="text-xs text-muted-foreground">Duration per study session</p>
+              </div>
+              <div className="space-y-3">
+                <Label className="text-xs font-medium flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-primary" />
+                  Topics to Cover
+                </Label>
+                <Textarea
                   value={topics}
                   onChange={(e) => setTopics(e.target.value)}
-                  placeholder="e.g. DSA, System Design, SQL"
+                  placeholder="Enter topics (one per line or comma separated):&#10;DSA&#10;System Design&#10;SQL&#10;&#10;Or: DSA, System Design, SQL"
+                  className="px-4 py-3 rounded-xl border-border hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 min-h-[100px] resize-y"
+                  rows={4}
                 />
+                <p className="text-xs text-muted-foreground">Enter topics separated by commas or new lines</p>
               </div>
             </div>
 
-            <Button
-              onClick={generateAIPlan}
-              disabled={aiLoading || !selectedMood}
-              className="w-full xp-bar border-0 text-white"
-            >
-              {aiLoading ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> Generating Plan...</>
-              ) : (
-                <><Sparkles className="w-4 h-4 mr-2" /> Generate My Study Plan</>
+            <div className="space-y-4">
+              <Button
+                onClick={generateAIPlan}
+                disabled={aiLoading || !selectedMood}
+                className="w-full xp-bar border-0 text-white py-4 rounded-xl font-medium hover:shadow-lg transition-all duration-200 text-base"
+              >
+                {aiLoading ? (
+                  <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" /> Generating Your Plan...</>
+                ) : (
+                  <><Sparkles className="w-5 h-5 mr-3" /> Generate My Study Plan</>
+                )}
+              </Button>
+
+              {/* Fallback button for realistic study schedule */}
+              {!aiPlan && !aiLoading && (
+                <Button
+                  onClick={() => {
+                    if (!selectedMood) {
+                      toast.error('Please select your mood first');
+                      return;
+                    }
+                    
+                    const moodData = moods.find(m => m.key === selectedMood)!;
+                    
+                    // Convert start time and calculate realistic schedule
+                    const [startHour, startMinute] = startTime.split(':');
+                    const startHour24 = parseInt(startHour);
+                    const startHour12 = startHour24 > 12 ? startHour24 - 12 : startHour24 === 0 ? 12 : startHour24;
+                    const startTimeFormatted = `${startHour12}:${startMinute} ${startHour24 >= 12 ? 'PM' : 'AM'}`;
+                    
+                    // Calculate realistic schedule with breaks
+                    const totalMinutes = parseInt(hours) * 60;
+                    const sessionMinutes = parseInt(sessionLength);
+                    const shortBreak = 15; // 15 min break
+                    const longBreak = 30; // 30 min meal break
+                    
+                    let currentTime = startHour24 * 60 + parseInt(startMinute);
+                    let remainingMinutes = totalMinutes;
+                    let sessionCount = 0;
+                    let schedule = [];
+                    
+                    while (remainingMinutes > 0) {
+                      sessionCount++;
+                      
+                      // Study session
+                      const sessionStart = Math.floor(currentTime / 60);
+                      const sessionStartMin = currentTime % 60;
+                      const sessionEnd = currentTime + sessionMinutes;
+                      const sessionEndHour = Math.floor(sessionEnd / 60);
+                      const sessionEndMin = sessionEnd % 60;
+                      
+                      const startFormat = `${sessionStart > 12 ? sessionStart - 12 : sessionStart === 0 ? 12 : sessionStart}:${sessionStartMin.toString().padStart(2, '0')} ${sessionStart >= 12 ? 'PM' : 'AM'}`;
+                      const endFormat = `${sessionEndHour > 12 ? sessionEndHour - 12 : sessionEndHour === 0 ? 12 : sessionEndHour}:${sessionEndMin.toString().padStart(2, '0')} ${sessionEndHour >= 12 ? 'PM' : 'AM'}`;
+                      
+                      const topics = ['Core Concepts & Theory', 'Practice Problems', 'Advanced Topics', 'Review & Mock Tests', 'System Design', 'Aptitude & Reasoning'];
+                      const topicIndex = (sessionCount - 1) % topics.length;
+                      
+                      schedule.push(`### ${startFormat} - ${endFormat}: Session ${sessionCount} - ${topics[topicIndex]}
+- **Focus**: ${topics || 'Data Structures & Algorithms'}
+- **Tasks**: 
+  - ${sessionCount === 1 ? 'Review fundamental concepts and theory' : 
+      sessionCount === 2 ? 'Solve 3-5 practice problems with explanations' :
+      sessionCount === 3 ? 'Study advanced patterns and optimization techniques' :
+      sessionCount === 4 ? 'Take mock tests and review mistakes' :
+      'Practice system design or work on weak areas'}
+  - ${sessionCount === 1 ? 'Take detailed notes and create mind maps' :
+      sessionCount === 2 ? 'Debug solutions and analyze time complexity' :
+      sessionCount === 3 ? 'Implement complex algorithms from scratch' :
+      sessionCount === 4 ? 'Analyze performance and identify improvement areas' :
+      'Focus on interview-style problem solving'}`);
+                      
+                      currentTime += sessionMinutes;
+                      remainingMinutes -= sessionMinutes;
+                      
+                      if (remainingMinutes > 0) {
+                        // Add break
+                        const breakDuration = (sessionCount % 3 === 0) ? longBreak : shortBreak;
+                        const breakStart = currentTime;
+                        const breakEnd = currentTime + breakDuration;
+                        const breakStartHour = Math.floor(breakStart / 60);
+                        const breakStartMin = breakStart % 60;
+                        const breakEndHour = Math.floor(breakEnd / 60);
+                        const breakEndMin = breakEnd % 60;
+                        
+                        const breakStartFormat = `${breakStartHour > 12 ? breakStartHour - 12 : breakStartHour === 0 ? 12 : breakStartHour}:${breakStartMin.toString().padStart(2, '0')} ${breakStartHour >= 12 ? 'PM' : 'AM'}`;
+                        const breakEndFormat = `${breakEndHour > 12 ? breakEndHour - 12 : breakEndHour === 0 ? 12 : breakEndHour}:${breakEndMin.toString().padStart(2, '0')} ${breakEndHour >= 12 ? 'PM' : 'AM'}`;
+                        
+                        schedule.push(`### ${breakStartFormat} - ${breakEndFormat}: ${breakDuration === longBreak ? 'Meal Break' : 'Rest Break'} (${breakDuration} min)
+- **Activities**: 
+  - ${breakDuration === longBreak ? 'Have a proper meal and relax' : 'Stretch, hydrate, and rest your eyes'}
+  - ${breakDuration === longBreak ? 'Take a short walk or do light exercise' : 'Quick snack if needed'}
+  - ${breakDuration === longBreak ? 'Clear your mind and prepare for next session' : 'Review what you just learned mentally'}`);
+                        
+                        currentTime += breakDuration;
+                      }
+                    }
+                    
+                    const fallbackPlan = `# ${moodData.label} Study Schedule (${hours} hours)
+**Start Time:** ${startTimeFormatted} | **Session Length:** ${sessionLength} minutes
+
+## Schedule Overview
+Based on your ${selectedMood} mood: ${moodData.message}
+
+${schedule.join('\n\n')}
+
+## Study Tips for ${selectedMood} mood:
+${moodData.key === 'motivated' ? '- Tackle the hardest problems first while energy is high\n- Set ambitious goals for each session\n- Challenge yourself with advanced topics\n- Use the Pomodoro technique for maximum focus' :
+  moodData.key === 'productive' ? '- Focus on consistent, steady progress\n- Break complex topics into smaller chunks\n- Maintain a steady pace throughout\n- Track your progress after each session' :
+  moodData.key === 'stressed' ? '- Start with easier, familiar topics to build confidence\n- Take longer breaks if needed\n- Focus on review rather than new concepts\n- Practice relaxation techniques during breaks' :
+  '- Keep sessions shorter and lighter than usual\n- Focus on revision and light practice\n- Take plenty of breaks and stay hydrated\n- Don\'t push too hard - rest is important too'}
+
+## Break Guidelines:
+- **Short breaks (15 min)**: Stretch, hydrate, rest eyes
+- **Long breaks (30 min)**: Proper meal, walk, mental reset
+- **Stay consistent**: Stick to the schedule for best results
+
+*This is a student-friendly schedule with realistic pacing for effective learning and retention.*`;
+                    
+                    setAiPlan(fallbackPlan);
+                    toast.success('Realistic study schedule generated! 📚');
+                  }}
+                  variant="outline"
+                  className="w-full py-4 rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 font-medium text-base"
+                >
+                  <Clock className="w-5 h-5 mr-3" /> Generate Realistic Schedule
+                </Button>
               )}
-            </Button>
+            </div>
 
             {aiPlan && (
-              <div className="bg-accent/30 rounded-xl p-4 border border-border/50">
-                <Streamdown parseIncompleteMarkdown isAnimating={aiLoading} className="text-sm [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm">
+              <div className="bg-gradient-to-br from-accent/20 to-primary/5 rounded-2xl p-6 border border-primary/20 shadow-lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-sm text-primary">Your Personalized Study Plan</h3>
+                </div>
+                <Streamdown parseIncompleteMarkdown isAnimating={aiLoading} className="text-sm [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm [&>p]:text-muted-foreground [&>ul]:text-muted-foreground">
                   {aiPlan}
                 </Streamdown>
               </div>
@@ -393,10 +623,7 @@ Create a structured hourly schedule with specific tasks. Be concise and practica
                   </Button>
                 </div>
                 
-                {/* Note about database setup */}
-                <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                  💡 If you're getting column errors, the database schema might need to refresh. Try refreshing the page or check the database setup.
-                </div>
+
               </div>
 
               {/* Stats */}

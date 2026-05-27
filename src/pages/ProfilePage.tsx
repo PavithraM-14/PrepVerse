@@ -11,10 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import type { UserProgress } from '@/types/types';
+import type { UserProgress, CodingAnalytics } from '@/types/types';
 import {
   User, Trophy, Flame, Zap, Star, Settings,
-  LogOut, Moon, Sun, Shield, Bell, CheckCircle,
+  LogOut, Moon, Sun, Shield, Bell, CheckCircle, Code2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +31,7 @@ export default function ProfilePage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [progress, setProgress] = useState<UserProgress | null>(null);
+  const [codingAnalytics, setCodingAnalytics] = useState<CodingAnalytics | null>(null);
   const [username, setUsername] = useState(profile?.username || '');
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [saving, setSaving] = useState(false);
@@ -40,6 +41,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     loadProgress();
+    loadCodingAnalytics();
     setUsername(profile?.username || '');
     setFullName(profile?.full_name || '');
   }, [user, profile]);
@@ -48,6 +50,16 @@ export default function ProfilePage() {
     if (!user) return;
     const { data } = await supabase.from('user_progress').select('*').eq('user_id', user.id).maybeSingle();
     setProgress(data);
+  };
+
+  const loadCodingAnalytics = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase.from('coding_analytics').select('*').eq('user_id', user.id).maybeSingle();
+      setCodingAnalytics(data);
+    } catch (error) {
+      console.error('Error loading coding analytics:', error);
+    }
   };
 
   const handleSave = async () => {
@@ -172,6 +184,43 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground">Complete tasks to earn badges!</p>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Coding Analytics */}
+        <Card className="border-border/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Code2 className="w-4 h-4 text-primary" /> Coding Analytics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {codingAnalytics ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 rounded-lg bg-accent/20">
+                  <div className="text-lg font-bold text-primary">{codingAnalytics.total_reviews}</div>
+                  <div className="text-xs text-muted-foreground">Code Reviews</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-accent/20">
+                  <div className="text-lg font-bold text-success">{Math.round(codingAnalytics.avg_code_quality)}</div>
+                  <div className="text-xs text-muted-foreground">Avg Quality</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-accent/20">
+                  <div className="text-lg font-bold text-warning">{codingAnalytics.coding_streak}</div>
+                  <div className="text-xs text-muted-foreground">Day Streak</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-accent/20">
+                  <div className="text-lg font-bold text-purple-500">{codingAnalytics.errors_fixed}</div>
+                  <div className="text-xs text-muted-foreground">Bugs Fixed</div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                <Code2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No coding analytics yet</p>
+                <p className="text-xs">Use AI Code Reviewer to start tracking</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
